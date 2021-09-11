@@ -4,21 +4,6 @@
 
 message(STATUS "Using vcpkg to find dependencies")
 
-macro(list_subdirs SUBDIRS DIR)
-  file(GLOB children_
-       RELATIVE ${DIR}
-       ${DIR}/*)
-  set(subdirs_ "")
-  foreach(child_ ${children_})
-    if(IS_DIRECTORY "${DIR}/${child_}")
-      list(APPEND subdirs_ ${child_})
-    endif()
-  endforeach()
-  set("${SUBDIRS}" ${subdirs_})
-  unset(children_)
-  unset(subdirs_)
-endmacro()
-
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
   get_filename_component(_VCPKG_DOT_CMAKE "${CMAKE_TOOLCHAIN_FILE}" NAME)
   if(EXISTS "${CMAKE_TOOLCHAIN_FILE}" AND _VCPKG_DOT_CMAKE STREQUAL "vcpkg.cmake")
