@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -50,21 +51,31 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "glm/glm.hpp"
 using namespace glm;
 
-struct Main {
-  vk::DynamicLoader dynamicLoader;
-  std::string applicationName{"cpp-2021-vulkan"};
+#include "CLI/App.hpp"
+#include "CLI/Config.hpp"
+#include "CLI/Formatter.hpp"
 
+struct Main {
+  std::string applicationName{"cpp-2021-vulkan"};
   Main() = delete;
   Main(int argc, char** argv) {
     try {
+      CLI::App cliApp{applicationName};
+      if (auto cliExit = [&]() -> std::optional<int> {
+            CLI11_PARSE(cliApp, argc, argv);
+            return std::nullopt;
+          }()) {
+        if (cliExit == 0)
+          exit(0);
+        throw std::runtime_error("CLI11_PARSE(cliApp, argc, argv)");
+      }
+      vk::raii::Context context;
       if (!glfwInit()) {
         throw std::runtime_error("!glfwInit()");
       }
       if (!glfwVulkanSupported()) {
         throw std::runtime_error("!glfwVulkanSupported()");
       }
-      auto vkGetInstanceProcAddr = dynamicLoader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
-      VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
       vk::ApplicationInfo applicationInfo(applicationName.c_str(), 1, applicationName.c_str(), 1, VK_API_VERSION_1_2);
       std::vector<char const*> instanceLayers;
 #if !defined(NDEBUG)
@@ -89,9 +100,8 @@ struct Main {
       for (auto& i : instanceExtensions)
         std::cout << i << "\n";
       vk::InstanceCreateInfo instanceCreateInfo({}, &applicationInfo, instanceLayers, instanceExtensions);
-      auto instance = vk::createInstance(instanceCreateInfo);
-      VULKAN_HPP_DEFAULT_DISPATCHER.init(instance);
-      auto physicalDevice = instance.enumeratePhysicalDevices().front();
+      vk::raii::Instance instance(context, instanceCreateInfo);
+      auto physicalDevice = std::move(vk::raii::PhysicalDevices(instance).front());
       auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
       auto queueFamilyPropertiesIterator =
           std::find_if(queueFamilyProperties.begin(), queueFamilyProperties.end(), [](vk::QueueFamilyProperties const& i) {
@@ -104,10 +114,8 @@ struct Main {
       }
       auto queuePriority = 0.0f;
       vk::DeviceQueueCreateInfo deviceQueueCreateInfo({}, static_cast<uint32_t>(queueFamilyIndex), 1, &queuePriority);
-      auto device = physicalDevice.createDevice(vk::DeviceCreateInfo({}, deviceQueueCreateInfo));
-      VULKAN_HPP_DEFAULT_DISPATCHER.init(device);
-      device.destroy();
-      instance.destroy();
+      vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueCreateInfo);
+      vk::raii::Device device(physicalDevice, deviceCreateInfo);
       std::cout << "cpp-2021-vulkan\n";  // main
     } catch (vk::SystemError& err) {
       std::cout << "vk::SystemError: " << err.what() << "\n";
