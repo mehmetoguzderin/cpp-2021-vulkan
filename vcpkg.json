@@ -4,6 +4,8 @@
   "version": "0.0.1",
   "dependencies": [
     "benchmark",
+    "cgltf",
+    "entt",
     "nlohmann-json",
     "pugixml",
     {

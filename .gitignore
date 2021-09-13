@@ -135,9 +135,9 @@ $tf/
 .sass-cache/
 .settings/
 .valgrindrc
-.vs
 .vs/
-.vscode
+.vscode/*
+!.vscode/c_cpp_properties.json
 /Makefile
 /build/
 /config.toml
@@ -243,7 +243,6 @@ node_modules/
 nunit-*.xml
 orleans.codegen.cs
 out/
-vcpkg_installed/
 paket-files/
 project.fragment.lock.json
 project.lock.json
@@ -252,6 +251,7 @@ rcf/
 tags
 tags.*
 target/
+vcpkg_installed/
 x64/
 x86/
 ~$*
