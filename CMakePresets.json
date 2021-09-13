@@ -10,7 +10,7 @@
       "name": "arm64-osx-dbg",
       "displayName": "arm64-osx-dbg",
       "description": "macOS ARM64 Debug",
-      "generator": "Ninja",
+      "generator": "Xcode",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
@@ -19,8 +19,8 @@
         },
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-        "CMAKE_C_COMPILER": "/usr/bin/clang",
-        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
       },
@@ -32,7 +32,7 @@
       "name": "arm64-osx-rel",
       "displayName": "arm64-osx-rel",
       "description": "macOS ARM64 Release",
-      "generator": "Ninja",
+      "generator": "Xcode",
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
@@ -41,13 +41,65 @@
         },
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-        "CMAKE_C_COMPILER": "/usr/bin/clang",
-        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
       },
       "environment": {
         "VCPKG_DEFAULT_TRIPLET": "arm64-osx"
+      }
+    },
+    {
+      "name": "x64-windows-dbg",
+      "displayName": "x64-windows-dbg",
+      "description": "Windows x64 Debug",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+      },
+      "environment": {
+        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
+      }
+    },
+    {
+      "name": "x64-windows-rel",
+      "displayName": "x64-windows-rel",
+      "description": "Windows x64 Release",
+      "generator": "Visual Studio 17 2022",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "architecture": {
+        "value": "x64",
+        "strategy": "set"
+      },
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+      },
+      "environment": {
+        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
       }
     }
   ]
