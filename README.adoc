@@ -1,1 +1,15 @@
 = `+cpp-2021-vulkan+`
+
+== Tooling
+
+=== Platforms
+
+* macOS
+** ARM64
+
+=== Prerequisites
+
+* CMake >= 3.19.0
+** If you use through VS or Code, make sure you enable presets
+* Vcpkg >= 2021.05.12
+** Make sure `VCPKG_ROOT` environment variable is set
