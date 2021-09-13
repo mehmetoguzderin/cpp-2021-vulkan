@@ -17,6 +17,14 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "glm/glm.hpp"
 using namespace glm;
 
-int main(int, char**) {
-  std::cout << "cpp-2021-vulkan\n";
+struct Main {
+  Main() = delete;
+  Main(int argc, char** argv) {
+    std::cout << "cpp-2021-vulkan\n";  // main
+  }
+};
+
+int main(int argc, char** argv) {
+  auto main = Main(argc, argv);
+  return 0;
 }
