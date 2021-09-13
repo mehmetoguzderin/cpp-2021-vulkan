@@ -1,0 +1,54 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "arm64-osx-dbg",
+      "displayName": "arm64-osx-dbg",
+      "description": "macOS ARM64 Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_C_COMPILER": "/usr/bin/clang",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+      },
+      "environment": {
+        "VCPKG_DEFAULT_TRIPLET": "arm64-osx"
+      }
+    },
+    {
+      "name": "arm64-osx-rel",
+      "displayName": "arm64-osx-rel",
+      "description": "macOS ARM64 Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": {
+          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "type": "FILEPATH"
+        },
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+        "CMAKE_C_COMPILER": "/usr/bin/clang",
+        "CMAKE_CXX_COMPILER": "/usr/bin/clang++",
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+      },
+      "environment": {
+        "VCPKG_DEFAULT_TRIPLET": "arm64-osx"
+      }
+    }
+  ]
+}
