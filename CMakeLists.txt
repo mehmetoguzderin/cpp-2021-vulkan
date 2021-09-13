@@ -11,6 +11,8 @@ project(cpp-2021-vulkan VERSION 0.0.1)
 include(CTest)
 enable_testing()
 
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 add_executable(cpp-2021-vulkan main.cpp)
 
 find_package(benchmark CONFIG REQUIRED)
