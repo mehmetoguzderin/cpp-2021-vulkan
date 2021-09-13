@@ -27,7 +27,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define VK_VERSION_1_2
 #define VK_NO_PROTOTYPES
 #define VULKAN_HPP_TYPESAFE_CONVERSION
 #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
