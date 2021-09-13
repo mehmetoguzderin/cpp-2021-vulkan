@@ -6,8 +6,25 @@
     "benchmark",
     "cgltf",
     "entt",
+    "glfw3",
+    "glm",
+    {
+      "name": "imgui",
+      "features": [
+        "glfw-binding",
+        "vulkan-binding"
+      ]
+    },
     "nlohmann-json",
     "pugixml",
+    {
+      "name": "sdl2-image",
+      "features": [
+        "libjpeg-turbo",
+        "tiff",
+        "libwebp"
+      ]
+    },
     {
       "name": "sqlite3",
       "features": [
@@ -15,6 +32,18 @@
         "geopoly"
       ]
     },
+    "spirv-headers",
+    "spirv-tools",
+    "taskflow",
+    "tclap",
+    {
+      "name": "tiff",
+      "features": [
+        "zstd"
+      ]
+    },
+    "vulkan-headers",
+    "vulkan-memory-allocator",
     "zstd"
   ]
 }
