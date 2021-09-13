@@ -11,7 +11,6 @@
 #include <cassert>
 #include <cinttypes>
 #include <csignal>
-#include <cstdbool>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
