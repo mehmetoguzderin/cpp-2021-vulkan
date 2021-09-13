@@ -14,7 +14,7 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
-          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         "CMAKE_BUILD_TYPE": "Debug",
@@ -22,7 +22,7 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
-        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+        "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
         "VCPKG_DEFAULT_TRIPLET": "arm64-osx"
@@ -36,7 +36,7 @@
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
-          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         "CMAKE_BUILD_TYPE": "Release",
@@ -44,7 +44,7 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
-        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+        "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
         "VCPKG_DEFAULT_TRIPLET": "arm64-osx"
@@ -62,7 +62,7 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
-          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         "CMAKE_BUILD_TYPE": "Debug",
@@ -70,7 +70,7 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "x64-windows-static",
-        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+        "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
         "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
@@ -88,7 +88,7 @@
       },
       "cacheVariables": {
         "CMAKE_TOOLCHAIN_FILE": {
-          "value": "${env:VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+          "value": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
           "type": "FILEPATH"
         },
         "CMAKE_BUILD_TYPE": "Release",
@@ -96,7 +96,7 @@
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
         "VCPKG_TARGET_TRIPLET": "x64-windows-static",
-        "Z_VCPKG_ROOT_DIR": "${env:VCPKG_ROOT}"
+        "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
         "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
