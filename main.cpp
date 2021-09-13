@@ -52,7 +52,7 @@ using namespace glm;
 
 struct Main {
   vk::DynamicLoader dynamicLoader;
-  std::string applicationName = "cpp-2021-vulkan";
+  std::string applicationName{"cpp-2021-vulkan"};
 
   Main() = delete;
   Main(int argc, char** argv) {
@@ -74,7 +74,7 @@ struct Main {
         std::cout << i << "\n";
       std::vector<char const*> instanceExtensions;
       {
-        uint32_t glfwInstanceExtensionsCount = 0;
+        auto glfwInstanceExtensionsCount = 0u;
         auto glfwInstanceExtensions = glfwGetRequiredInstanceExtensions(&glfwInstanceExtensionsCount);
         if (glfwInstanceExtensions == NULL) {
           throw std::runtime_error("glfwInstanceExtensions == NULL");
@@ -98,7 +98,7 @@ struct Main {
             return (i.queueFlags & (vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eGraphics)) ==
                    (vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eGraphics);
           });
-      size_t queueFamilyIndex = std::distance(queueFamilyProperties.begin(), queueFamilyPropertiesIterator);
+      auto queueFamilyIndex = std::distance(queueFamilyProperties.begin(), queueFamilyPropertiesIterator);
       if (queueFamilyIndex >= queueFamilyProperties.size()) {
         throw std::runtime_error("queueFamilyIndex >= queueFamilyProperties.size()");
       }
@@ -123,6 +123,6 @@ struct Main {
 };
 
 int main(int argc, char** argv) {
-  auto main = Main(argc, argv);
+  auto main = Main{argc, argv};
   return 0;
 }
