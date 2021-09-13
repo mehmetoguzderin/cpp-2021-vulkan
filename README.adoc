@@ -15,7 +15,7 @@
 ** If you use through VS or Code, make sure you enable presets
 * Vcpkg >= 2021.05.12
 ** Make sure `VCPKG_ROOT` environment variable is set
-* Vulkan SDK >= 1.2
+* Vulkan SDK >= 1.2.0
 ** Make sure `VULKAN_SDK` environment variable is set
 
 === Generating (CLI)

@@ -19,6 +19,9 @@ target_link_libraries(cpp-2021-vulkan PRIVATE benchmark::benchmark benchmark::be
 find_path(CGLTF_INCLUDE_DIRS "cgltf.h")
 target_include_directories(cpp-2021-vulkan PRIVATE ${CGLTF_INCLUDE_DIRS})
 
+find_package(CLI11 CONFIG REQUIRED)
+target_link_libraries(cpp-2021-vulkan PRIVATE CLI11::CLI11)
+
 find_package(EnTT CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE EnTT::EnTT)
 
@@ -55,9 +58,6 @@ target_link_libraries(cpp-2021-vulkan PRIVATE unofficial::sqlite3::sqlite3)
 
 find_package(Taskflow CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE Taskflow::Taskflow)
-
-find_path(TCLAP_INCLUDE_DIRS "tclap/Arg.h")
-target_include_directories(cpp-2021-vulkan PRIVATE ${TCLAP_INCLUDE_DIRS})
 
 find_path(VULKAN_HEADERS_INCLUDE_DIRS "vk_video/vulkan_video_codec_h264std.h")
 target_include_directories(cpp-2021-vulkan PRIVATE ${VULKAN_HEADERS_INCLUDE_DIRS})

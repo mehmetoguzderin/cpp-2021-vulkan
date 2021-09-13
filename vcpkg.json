@@ -5,6 +5,7 @@
   "dependencies": [
     "benchmark",
     "cgltf",
+    "cli11",
     "entt",
     "glfw3",
     "glm",
@@ -35,7 +36,6 @@
     "spirv-headers",
     "spirv-tools",
     "taskflow",
-    "tclap",
     {
       "name": "tiff",
       "features": [
