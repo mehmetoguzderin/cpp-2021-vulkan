@@ -7,8 +7,8 @@
         "${workspaceFolder}/**",
         "${workspaceFolder}/out/build/arm64-osx-dbg/vcpkg_installed/arm64-osx/include/**",
         "${workspaceFolder}/out/build/arm64-osx-rel/vcpkg_installed/arm64-osx/include/**",
-        "${workspaceFolder}/out/build/x64-windows-dbg/vcpkg_installed/arm64-osx/include/**",
-        "${workspaceFolder}/out/build/x64-windows-rel/vcpkg_installed/arm64-osx/include/**"
+        "${workspaceFolder}/out/build/x64-windows-dbg/vcpkg_installed/x64-windows-static/include/**",
+        "${workspaceFolder}/out/build/x64-windows-rel/vcpkg_installed/x64-windows-static/include/**"
       ],
       "cStandard": "c17",
       "cppStandard": "c++20",
