@@ -4,15 +4,24 @@
     {
       "name": "Default",
       "includePath": [
+        "/usr/local/include/**",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/**",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/c++/v1/**",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/12.0.5/include/**",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/**",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/**",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/**",
         "${workspaceFolder}/**",
         "${workspaceFolder}/out/build/arm64-osx-dbg/vcpkg_installed/arm64-osx/include/**",
         "${workspaceFolder}/out/build/arm64-osx-rel/vcpkg_installed/arm64-osx/include/**",
         "${workspaceFolder}/out/build/x64-windows-dbg/vcpkg_installed/x64-windows-static/include/**",
         "${workspaceFolder}/out/build/x64-windows-rel/vcpkg_installed/x64-windows-static/include/**"
       ],
+      "macFrameworkPath": [
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+      ],
       "cStandard": "c17",
-      "cppStandard": "c++20",
-      "configurationProvider": "ms-vscode.cmake-tools"
+      "cppStandard": "c++20"
     }
   ]
 }
