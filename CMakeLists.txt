@@ -11,8 +11,6 @@ project(cpp-2021-vulkan VERSION 0.0.1)
 include(CTest)
 enable_testing()
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MT")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
 add_executable(cpp-2021-vulkan main.cpp)
 
 find_package(benchmark CONFIG REQUIRED)
@@ -48,15 +46,15 @@ target_link_libraries(cpp-2021-vulkan PRIVATE SDL2::SDL2_image)
 find_path(SPIRV_HEADERS_INCLUDE_DIRS "spirv/1.0/GLSL.std.450.h")
 target_include_directories(cpp-2021-vulkan PRIVATE ${SPIRV_HEADERS_INCLUDE_DIRS})
 
-add_library(SPIRV-Tools INTERFACE)
-find_package(SPIRV-Tools CONFIG REQUIRED)
-target_link_libraries(cpp-2021-vulkan PRIVATE SPIRV-Tools-static)
+# add_library(SPIRV-Tools INTERFACE)
+# find_package(SPIRV-Tools CONFIG REQUIRED)
+# target_link_libraries(cpp-2021-vulkan PRIVATE SPIRV-Tools-static)
 
-find_package(SPIRV-Tools-opt CONFIG REQUIRED)
-target_link_libraries(cpp-2021-vulkan PRIVATE SPIRV-Tools-opt)
+# find_package(SPIRV-Tools-opt CONFIG REQUIRED)
+# target_link_libraries(cpp-2021-vulkan PRIVATE SPIRV-Tools-opt)
 
-find_package(unofficial-sqlite3 CONFIG REQUIRED)
-target_link_libraries(cpp-2021-vulkan PRIVATE unofficial::sqlite3::sqlite3)
+# find_package(unofficial-sqlite3 CONFIG REQUIRED)
+# target_link_libraries(cpp-2021-vulkan PRIVATE unofficial::sqlite3::sqlite3)
 
 find_package(Taskflow CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE Taskflow::Taskflow)

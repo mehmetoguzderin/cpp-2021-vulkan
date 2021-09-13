@@ -69,11 +69,11 @@
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
         "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
-        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
+        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static-md"
       }
     },
     {
@@ -95,11 +95,11 @@
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-static",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static-md",
         "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
       "environment": {
-        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static"
+        "VCPKG_DEFAULT_TRIPLET": "x64-windows-static-md"
       }
     }
   ]
