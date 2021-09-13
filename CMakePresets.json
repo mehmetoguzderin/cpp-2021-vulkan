@@ -102,5 +102,35 @@
         "VCPKG_DEFAULT_TRIPLET": "x64-windows-static-md"
       }
     }
+  ],
+  "buildPresets": [
+    {
+      "name": "arm64-osx-dbg",
+      "displayName": "arm64-osx-dbg",
+      "description": "macOS ARM64 Debug",
+      "configurePreset": "arm64-osx-dbg",
+      "configuration": "Debug"
+    },
+    {
+      "name": "arm64-osx-rel",
+      "displayName": "arm64-osx-rel",
+      "description": "macOS ARM64 Release",
+      "configurePreset": "arm64-osx-rel",
+      "configuration": "Release"
+    },
+    {
+      "name": "x64-windows-dbg",
+      "displayName": "x64-windows-dbg",
+      "description": "Windows x64 Debug",
+      "configurePreset": "x64-windows-dbg",
+      "configuration": "Debug"
+    },
+    {
+      "name": "x64-windows-rel",
+      "displayName": "x64-windows-rel",
+      "description": "Windows x64 Release",
+      "configurePreset": "x64-windows-rel",
+      "configuration": "Release"
+    }
   ]
 }
