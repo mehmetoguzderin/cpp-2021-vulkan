@@ -1,6 +1,6 @@
 # cpp-2021-vulkan
 
-cmake_minimum_required(VERSION 3.20.0)
+cmake_minimum_required(VERSION 3.21.0)
 
 # See https://github.com/apache/arrow/blob/master/cpp/cmake_modules/Usevcpkg.cmake
 
