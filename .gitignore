@@ -243,6 +243,7 @@ node_modules/
 nunit-*.xml
 orleans.codegen.cs
 out/
+vcpkg_installed/
 paket-files/
 project.fragment.lock.json
 project.lock.json
