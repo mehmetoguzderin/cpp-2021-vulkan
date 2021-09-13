@@ -5,7 +5,7 @@
       "name": "Default",
       "includePath": [
         "${workspaceFolder}/**",
-        "${workspaceFolder}/out/build/arm64-osx-dbg/vcpkg_installed/arm64-osx/include/**",
+        "${workspaceFolder}/out/build/arm64-osx-dbg/vcpkg_installed/arm64-osx/include/**"
       ],
       "cStandard": "c17",
       "cppStandard": "c++20",
