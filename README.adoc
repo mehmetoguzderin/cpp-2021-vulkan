@@ -6,6 +6,8 @@
 
 * macOS
 ** ARM64
+* Windows
+** x64
 
 === Prerequisites
 
@@ -15,3 +17,9 @@
 ** Make sure `VCPKG_ROOT` environment variable is set
 * Vulkan SDK >= 1.2
 ** Make sure `VULKAN_SDK` environment variable is set
+
+=== Generating (CLI)
+
+....
+cmake . --preset arm64-osx-dbg|arm64-osx-rel|x64-windows-dbg|x64-windows-rel
+....
