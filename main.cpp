@@ -238,7 +238,7 @@ struct Main {
         };
         auto buffer = bufferCreate(bufferCreateInfo, allocationCreateInfo);
         bufferUse<uint32_t>(buffer, [&](auto data) { data[0] = 128; });
-        commandPoolSubmit([&](const auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
+        commandPoolSubmit([&](auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         bufferDestroy(buffer);
         allocatorDestroy();
