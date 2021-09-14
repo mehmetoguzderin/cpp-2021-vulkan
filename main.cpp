@@ -20,6 +20,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -168,7 +169,14 @@ struct Main {
     vmaUnmapMemory(allocator, buffer.allocation);
   }
   void bufferDestroy(const Buffer buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
-  vk::raii::ShaderModule shaderModuleCreateFromSource(vk::ShaderStageFlagBits shaderStage, std::string shaderSource) {
+  vk::raii::ShaderModule shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits shaderStage, std::string shaderGlsl) {
+    std::ifstream shaderModuleMainCompInput(shaderGlsl, std::ios::binary);
+    if (shaderModuleMainCompInput.fail()) {
+      throw std::runtime_error("shaderModuleMainCompInput.fail()");
+    }
+    std::stringstream shaderModuleMainCompStream;
+    shaderModuleMainCompStream << shaderModuleMainCompInput.rdbuf();
+    std::string shaderSource = shaderModuleMainCompStream.str();
     std::vector<unsigned int> shaderSpirv;
     EShLanguage stage;
     switch (shaderStage) {
@@ -332,6 +340,18 @@ struct Main {
     glslang::GlslangToSpv(*program.getIntermediate(stage), shaderSpirv);
     return vk::raii::ShaderModule(*device, vk::ShaderModuleCreateInfo(vk::ShaderModuleCreateFlags(), shaderSpirv));
   }
+  vk::raii::ShaderModule shaderModuleCreateFromSpirvFile(std::string shaderSpirvFile) {
+    std::ifstream shaderModuleMainCompInput(shaderSpirvFile, std::ios::ate | std::ios::binary);
+    if (shaderModuleMainCompInput.fail()) {
+      throw std::runtime_error("shaderModuleMainCompInput.fail()");
+    }
+    size_t shaderModuleMainCompInputSize = (size_t)shaderModuleMainCompInput.tellg();
+    std::vector<char> shaderModuleMainCompSpirv(shaderModuleMainCompInputSize);
+    shaderModuleMainCompInput.seekg(0);
+    shaderModuleMainCompInput.read(shaderModuleMainCompSpirv.data(), static_cast<std::streamsize>(shaderModuleMainCompInputSize));
+    return vk::raii::ShaderModule(*device, vk::ShaderModuleCreateInfo({}, shaderModuleMainCompInputSize,
+                                                                      reinterpret_cast<const uint32_t*>(shaderModuleMainCompSpirv.data())));
+  }
   Main() = delete;
   Main(const Main&) = delete;
   Main& operator=(const Main&) = delete;
@@ -348,6 +368,10 @@ struct Main {
         sourceDirectory = sourceDirectory.parent_path();
       }
       CLI::App cliApp{applicationName};
+      std::string mainCompGlsl = "main.comp";
+      cliApp.add_option("-g,--main-comp-glsl", mainCompGlsl, "GLSL")->envname("main-comp-glsl");
+      std::string mainCompSpv = "";
+      cliApp.add_option("-s,--main-comp-spirv", mainCompSpv, "SPIRV")->envname("main-comp-spirv");
       if (auto cliExit = [&]() -> std::optional<int> {
             CLI11_PARSE(cliApp, argc, argv);
             return std::nullopt;
@@ -426,6 +450,7 @@ struct Main {
         };
         auto buffer = bufferCreate(bufferCreateInfo, allocationCreateInfo);
         bufferUse<uint32_t>(buffer, [&](auto data) { data[0] = 128; });
+        bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings{
             vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute),
             vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute),
@@ -441,15 +466,24 @@ struct Main {
             vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[1].binding, 0, descriptorSetLayoutBindings[1].descriptorType, {},
                                    descriptorBufferInfo)};
         device->updateDescriptorSets(writeDescriptorSets, nullptr);
-        std::ifstream shaderModuleMainCompInput(sourceDirectory / "main.comp", std::ios::binary);
-        if (shaderModuleMainCompInput.fail()) {
-          throw std::runtime_error("shaderModuleMainCompInput.fail()");
+        std::unique_ptr<vk::raii::ShaderModule> shaderModuleMainComp;
+        if (mainCompSpv.ends_with("spv")) {
+          shaderModuleMainComp = std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / mainCompSpv));
+        } else {
+          shaderModuleMainComp = std::make_unique<vk::raii::ShaderModule>(
+              shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits::eCompute, sourceDirectory / mainCompGlsl));
         }
-        std::stringstream shaderModuleMainCompStream;
-        shaderModuleMainCompStream << shaderModuleMainCompInput.rdbuf();
-        std::string shaderModuleMainCompSource = shaderModuleMainCompStream.str();
-        auto shaderModuleMainComp = shaderModuleCreateFromSource(vk::ShaderStageFlagBits::eCompute, shaderModuleMainCompSource);
         commandPoolSubmit([&](auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
+        bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
+        vk::raii::PipelineLayout pipelineLayout(*device, {{}, *descriptorSetLayout});
+        vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, **shaderModuleMainComp, "main");
+        vk::ComputePipelineCreateInfo pipelineCreateInfo({}, pipelineShaderStageCreateInfo, *pipelineLayout);
+        vk::raii::Pipeline pipeline(*device, nullptr, pipelineCreateInfo);
+        commandPoolSubmit([&](auto& commandBuffer) {
+          commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, *descriptorSet, {});
+          commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
+          commandBuffer.dispatch(1, 1, 1);
+        });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         bufferDestroy(buffer);
         allocatorDestroy();
