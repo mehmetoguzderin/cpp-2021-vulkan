@@ -71,14 +71,17 @@ struct Main {
   std::unique_ptr<vk::raii::Device> device;
   std::unique_ptr<vk::raii::Queue> queue;
   std::unique_ptr<vk::raii::CommandPool> commandPool;
-  void commandPoolSubmit(const std::function<void(const vk::raii::CommandBuffer& commandBuffer)> encoder) {
+  void commandPoolSubmit(const std::function<void(const vk::raii::CommandBuffer& commandBuffer)> encoder,
+                         vk::Fence waitFence = {},
+                         const vk::ArrayProxyNoTemporaries<const vk::PipelineStageFlags>& waitStageMask = {},
+                         const vk::ArrayProxyNoTemporaries<const vk::Semaphore>& waitSemaphores = {}) {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo(**commandPool, vk::CommandBufferLevel::ePrimary, 1);
     auto commandBuffer = std::move(vk::raii::CommandBuffers(*device, commandBufferAllocateInfo).front());
     commandBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
     encoder(commandBuffer);
     commandBuffer.end();
-    vk::SubmitInfo submitInfo(nullptr, nullptr, *commandBuffer);
-    queue->submit(submitInfo, nullptr);
+    vk::SubmitInfo submitInfo(waitSemaphores, waitStageMask, *commandBuffer);
+    queue->submit(submitInfo, waitFence);
     queue->waitIdle();
   }
   std::unique_ptr<vk::raii::DescriptorPool> descriptorPool;
@@ -425,9 +428,13 @@ struct Main {
       if (queueFamilyIndex >= queueFamilyProperties.size()) {
         throw std::runtime_error("queueFamilyIndex >= queueFamilyProperties.size()");
       }
+      std::vector<char const*> deviceExtensions;
+      deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+      for (auto& i : deviceExtensions)
+        std::cout << i << "\n";
       auto queuePriority = 0.0f;
       vk::DeviceQueueCreateInfo deviceQueueCreateInfo({}, queueFamilyIndex, 1, &queuePriority);
-      vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueCreateInfo);
+      vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueCreateInfo, {}, deviceExtensions);
       device = std::make_unique<vk::raii::Device>(*physicalDevice, deviceCreateInfo);
       queue = std::make_unique<vk::raii::Queue>(*device, queueFamilyIndex, 0);
       vk::CommandPoolCreateInfo commandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndex);
@@ -474,22 +481,136 @@ struct Main {
           shaderModuleMainDoubleComp = std::make_unique<vk::raii::ShaderModule>(
               shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits::eCompute, sourceDirectory / mainDoubleCompGlsl));
         }
-        commandPoolSubmit([&](auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
+        commandPoolSubmit(
+            [&](const vk::raii::CommandBuffer& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         vk::raii::PipelineLayout pipelineLayout(*device, {{}, *descriptorSetLayout});
         vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, **shaderModuleMainDoubleComp,
                                                                         "main");
         vk::ComputePipelineCreateInfo pipelineCreateInfo({}, pipelineShaderStageCreateInfo, *pipelineLayout);
         vk::raii::Pipeline pipeline(*device, nullptr, pipelineCreateInfo);
-        commandPoolSubmit([&](auto& commandBuffer) {
+        commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
           commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *pipelineLayout, 0, *descriptorSet, {});
           commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *pipeline);
           commandBuffer.dispatch(1, 1, 1);
         });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+        auto window = glfwCreateWindow(960, 540, "cpp-2021-vulkan", NULL, NULL);
+        VkSurfaceKHR vkSurface;
+        if (glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS)
+          throw std::runtime_error("glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS");
+        vk::raii::SurfaceKHR surface(*instance, vkSurface);
+        if (!physicalDevice->getSurfaceSupportKHR(queueFamilyIndex, *surface))
+          throw std::runtime_error("!physicalDevice->getSurfaceSupportKHR(queueFamilyIndex, *surface)");
+        uint32_t width, height;
+        glfwGetFramebufferSize(window, reinterpret_cast<int*>(&width), reinterpret_cast<int*>(&height));
+        vk::SurfaceFormatKHR surfaceFormat = vk::SurfaceFormatKHR(vk::Format::eR16G16B16A16Sfloat, vk::ColorSpaceKHR::eSrgbNonlinear);
+        vk::SurfaceCapabilitiesKHR surfaceCapabilities = physicalDevice->getSurfaceCapabilitiesKHR(*surface);
+        VkExtent2D swapchainExtent;
+        if (surfaceCapabilities.currentExtent.width == std::numeric_limits<uint32_t>::max()) {
+          swapchainExtent.width = std::clamp(width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
+          swapchainExtent.height = std::clamp(height, surfaceCapabilities.minImageExtent.height, surfaceCapabilities.maxImageExtent.height);
+        } else {
+          swapchainExtent = surfaceCapabilities.currentExtent;
+        }
+        vk::SwapchainCreateInfoKHR swapchainCreateInfo(
+            {}, *surface, surfaceCapabilities.minImageCount, surfaceFormat.format, surfaceFormat.colorSpace, swapchainExtent, 1,
+            vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive, queueFamilyIndex,
+            vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::PresentModeKHR::eFifo, true, nullptr);
+        vk::raii::SwapchainKHR swapchain(*device, swapchainCreateInfo);
+        std::vector<VkImage> swapchainImages = swapchain.getImages();
+        std::vector<vk::raii::ImageView> swapchainImageViews;
+        for (auto swapchainImage : swapchainImages) {
+          vk::ImageViewCreateInfo swapchainImageViewCreateInfo(
+              {}, static_cast<vk::Image>(swapchainImage), vk::ImageViewType::e2D, surfaceFormat.format,
+              vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
+              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+          swapchainImageViews.push_back({*device, swapchainImageViewCreateInfo});
+        }
+        uint32_t tile = 256;
+        vk::ImageCreateInfo imageCreateInfo({}, vk::ImageType::e2D, surfaceFormat.format, vk::Extent3D(tile, tile, 1), 1, 1,
+                                            vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal,
+                                            vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage |
+                                                vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
+                                            vk::SharingMode::eExclusive, queueFamilyIndex);
+        auto vkImageCreateInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
+        VmaAllocationCreateInfo imageAllocationCreateInfo{
+            .flags = {},
+            .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+        };
+        VkImage vkImage;
+        VmaAllocation imageAllocation;
+        VmaAllocationInfo imageAllocationInfo;
+        if (vmaCreateImage(allocator, &vkImageCreateInfo, &imageAllocationCreateInfo, &vkImage, &imageAllocation, &imageAllocationInfo) !=
+            VK_SUCCESS)
+          throw std::runtime_error(
+              "vmaCreateImage(allocator, &vkImageCreateInfo, &imageAllocationCreateInfo, &vkImage, &imageAllocation, &imageAllocationInfo) != "
+              "VK_SUCCESS");
+        vk::Image image(vkImage);
+        vk::ImageViewCreateInfo imageViewCreateInfo(
+            {}, static_cast<vk::Image>(image), vk::ImageViewType::e2D, surfaceFormat.format,
+            vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
+            vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+        vk::raii::ImageView imageView(*device, imageViewCreateInfo);
+        while (!glfwWindowShouldClose(window)) {
+          glfwPollEvents();
+          vk::raii::Semaphore imageAcquiredSemaphore(*device, vk::SemaphoreCreateInfo());
+          vk::Result result;
+          uint32_t imageIndex;
+          std::tie(result, imageIndex) = swapchain.acquireNextImage(100000000, *imageAcquiredSemaphore);
+          if (result != vk::Result::eSuccess)
+            throw std::runtime_error("result != vk::Result::eSuccess");
+          if (imageIndex >= swapchainImages.size())
+            throw std::runtime_error("imageIndex >= swapchainImages.size()");
+          vk::PipelineStageFlags waitStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+          vk::raii::Fence drawFence(*device, vk::FenceCreateInfo());
+          commandPoolSubmit(
+              [&](const vk::raii::CommandBuffer& commandBuffer) {
+                vk::ImageMemoryBarrier clearMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite,
+                                                          vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex,
+                                                          queueFamilyIndex, image,
+                                                          vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+                commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
+                                              clearMemoryBarrier);
+                vk::ClearColorValue clearColorValue{};
+                clearColorValue.setFloat32({0, 0, 1, 1});
+                commandBuffer.clearColorImage(image, vk::ImageLayout::eTransferDstOptimal, clearColorValue,
+                                              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+                std::vector<vk::ImageMemoryBarrier> copyMemoryBarriers{
+                    vk::ImageMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
+                                           vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image,
+                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)),
+                    vk::ImageMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
+                                           vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex,
+                                           swapchainImages[imageIndex],
+                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1))};
+                commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
+                                              copyMemoryBarriers);
+                vk::ImageCopy imageCopy(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), {},
+                                        vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), vk::Offset3D(tile, tile, 0),
+                                        vk::Extent3D(tile, tile, 1));
+                commandBuffer.copyImage(image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex],
+                                        vk::ImageLayout::eTransferDstOptimal, imageCopy);
+                vk::ImageMemoryBarrier outputMemoryBarrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentRead,
+                                                           vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR, queueFamilyIndex,
+                                                           queueFamilyIndex, swapchainImages[imageIndex],
+                                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+                commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {},
+                                              {}, outputMemoryBarrier);
+              },
+              *drawFence, waitStageMask, *imageAcquiredSemaphore);
+          while (vk::Result::eTimeout == device->waitForFences(*drawFence, VK_TRUE, 100000000))
+            ;
+          vk::PresentInfoKHR presentInfoKHR(nullptr, *swapchain, imageIndex);
+          result = queue->presentKHR(presentInfoKHR);
+        }
+        glfwDestroyWindow(window);
+        vmaDestroyImage(allocator, static_cast<VkImage>(image), imageAllocation);
         bufferDestroy(buffer);
         allocatorDestroy();
       }
+      glfwTerminate();
       glslang::FinalizeProcess();
       std::cout << "cpp-2021-vulkan\n";  // main
     } catch (vk::SystemError& err) {
