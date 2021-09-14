@@ -381,13 +381,13 @@ struct Main {
         throw std::runtime_error("CLI11_PARSE(cliApp, argc, argv)");
       }
       context = std::make_unique<vk::raii::Context>();
+      glslang::InitializeProcess();
       if (!glfwInit()) {
         throw std::runtime_error("!glfwInit()");
       }
       if (!glfwVulkanSupported()) {
         throw std::runtime_error("!glfwVulkanSupported()");
       }
-      glslang::InitializeProcess();
       vk::ApplicationInfo applicationInfo(applicationName.c_str(), 1, applicationName.c_str(), 1, VK_API_VERSION_1_2);
       std::vector<char const*> instanceLayers;
 #if !defined(NDEBUG)
