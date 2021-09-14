@@ -169,7 +169,7 @@ struct Main {
     vmaUnmapMemory(allocator, buffer.allocation);
   }
   void bufferDestroy(const Buffer buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
-  vk::raii::ShaderModule shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits shaderStage, std::string shaderGlsl) {
+  vk::raii::ShaderModule shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits shaderStage, std::filesystem::path shaderGlsl) {
     std::ifstream shaderModuleMainCompInput(shaderGlsl, std::ios::binary);
     if (shaderModuleMainCompInput.fail()) {
       throw std::runtime_error("shaderModuleMainCompInput.fail()");
@@ -340,7 +340,7 @@ struct Main {
     glslang::GlslangToSpv(*program.getIntermediate(stage), shaderSpirv);
     return vk::raii::ShaderModule(*device, vk::ShaderModuleCreateInfo(vk::ShaderModuleCreateFlags(), shaderSpirv));
   }
-  vk::raii::ShaderModule shaderModuleCreateFromSpirvFile(std::string shaderSpirvFile) {
+  vk::raii::ShaderModule shaderModuleCreateFromSpirvFile(std::filesystem::path shaderSpirvFile) {
     std::ifstream shaderModuleMainCompInput(shaderSpirvFile, std::ios::ate | std::ios::binary);
     if (shaderModuleMainCompInput.fail()) {
       throw std::runtime_error("shaderModuleMainCompInput.fail()");
