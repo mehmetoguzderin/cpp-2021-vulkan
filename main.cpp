@@ -15,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -54,6 +55,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "glm/glm.hpp"
 using namespace glm;
 
+#include "glslang/SPIRV/GlslangToSpv.h"
+
 #include "CLI/App.hpp"
 #include "CLI/Config.hpp"
 #include "CLI/Formatter.hpp"
@@ -63,7 +66,7 @@ struct Main {
   std::unique_ptr<vk::raii::Context> context;
   std::unique_ptr<vk::raii::Instance> instance;
   std::unique_ptr<vk::raii::PhysicalDevice> physicalDevice;
-  std::vector<uint32_t> queueFamilyIndices;
+  uint32_t queueFamilyIndex;
   std::unique_ptr<vk::raii::Device> device;
   std::unique_ptr<vk::raii::Queue> queue;
   std::unique_ptr<vk::raii::CommandPool> commandPool;
@@ -77,6 +80,7 @@ struct Main {
     queue->submit(submitInfo, nullptr);
     queue->waitIdle();
   }
+  std::unique_ptr<vk::raii::DescriptorPool> descriptorPool;
   VmaAllocator allocator;
   void allocatorCreate() {
     VmaVulkanFunctions allocatorVulkanFunctions{};
@@ -164,11 +168,185 @@ struct Main {
     vmaUnmapMemory(allocator, buffer.allocation);
   }
   void bufferDestroy(const Buffer buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
+  vk::raii::ShaderModule shaderModuleCreateFromSource(vk::ShaderStageFlagBits shaderStage, std::string shaderSource) {
+    std::vector<unsigned int> shaderSpirv;
+    EShLanguage stage;
+    switch (shaderStage) {
+      case vk::ShaderStageFlagBits::eVertex:
+        stage = EShLangVertex;
+        break;
+      case vk::ShaderStageFlagBits::eTessellationControl:
+        stage = EShLangTessControl;
+        break;
+      case vk::ShaderStageFlagBits::eTessellationEvaluation:
+        stage = EShLangTessEvaluation;
+        break;
+      case vk::ShaderStageFlagBits::eGeometry:
+        stage = EShLangGeometry;
+        break;
+      case vk::ShaderStageFlagBits::eFragment:
+        stage = EShLangFragment;
+        break;
+      case vk::ShaderStageFlagBits::eCompute:
+        stage = EShLangCompute;
+        break;
+      case vk::ShaderStageFlagBits::eRaygenKHR:
+        stage = EShLangRayGen;
+        break;
+      case vk::ShaderStageFlagBits::eAnyHitKHR:
+        stage = EShLangAnyHit;
+        break;
+      case vk::ShaderStageFlagBits::eClosestHitKHR:
+        stage = EShLangClosestHit;
+        break;
+      case vk::ShaderStageFlagBits::eMissKHR:
+        stage = EShLangMiss;
+        break;
+      case vk::ShaderStageFlagBits::eIntersectionKHR:
+        stage = EShLangIntersect;
+        break;
+      case vk::ShaderStageFlagBits::eCallableKHR:
+        stage = EShLangCallable;
+        break;
+      default:
+        throw std::runtime_error("shaderStage");
+    }
+    const char* shaderStrings[1]{shaderSource.data()};
+    glslang::TShader shader(stage);
+    shader.setStrings(shaderStrings, 1);
+    EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
+    TBuiltInResource buildInResources{.maxLights = 32,
+                                      .maxClipPlanes = 6,
+                                      .maxTextureUnits = 32,
+                                      .maxTextureCoords = 32,
+                                      .maxVertexAttribs = 64,
+                                      .maxVertexUniformComponents = 4096,
+                                      .maxVaryingFloats = 64,
+                                      .maxVertexTextureImageUnits = 32,
+                                      .maxCombinedTextureImageUnits = 80,
+                                      .maxTextureImageUnits = 32,
+                                      .maxFragmentUniformComponents = 4096,
+                                      .maxDrawBuffers = 32,
+                                      .maxVertexUniformVectors = 128,
+                                      .maxVaryingVectors = 8,
+                                      .maxFragmentUniformVectors = 16,
+                                      .maxVertexOutputVectors = 16,
+                                      .maxFragmentInputVectors = 15,
+                                      .minProgramTexelOffset = -8,
+                                      .maxProgramTexelOffset = 7,
+                                      .maxClipDistances = 8,
+                                      .maxComputeWorkGroupCountX = 65535,
+                                      .maxComputeWorkGroupCountY = 65535,
+                                      .maxComputeWorkGroupCountZ = 65535,
+                                      .maxComputeWorkGroupSizeX = 1024,
+                                      .maxComputeWorkGroupSizeY = 1024,
+                                      .maxComputeWorkGroupSizeZ = 64,
+                                      .maxComputeUniformComponents = 1024,
+                                      .maxComputeTextureImageUnits = 16,
+                                      .maxComputeImageUniforms = 8,
+                                      .maxComputeAtomicCounters = 8,
+                                      .maxComputeAtomicCounterBuffers = 1,
+                                      .maxVaryingComponents = 60,
+                                      .maxVertexOutputComponents = 64,
+                                      .maxGeometryInputComponents = 64,
+                                      .maxGeometryOutputComponents = 128,
+                                      .maxFragmentInputComponents = 128,
+                                      .maxImageUnits = 8,
+                                      .maxCombinedImageUnitsAndFragmentOutputs = 8,
+                                      .maxCombinedShaderOutputResources = 8,
+                                      .maxImageSamples = 0,
+                                      .maxVertexImageUniforms = 0,
+                                      .maxTessControlImageUniforms = 0,
+                                      .maxTessEvaluationImageUniforms = 0,
+                                      .maxGeometryImageUniforms = 0,
+                                      .maxFragmentImageUniforms = 8,
+                                      .maxCombinedImageUniforms = 8,
+                                      .maxGeometryTextureImageUnits = 16,
+                                      .maxGeometryOutputVertices = 256,
+                                      .maxGeometryTotalOutputComponents = 1024,
+                                      .maxGeometryUniformComponents = 1024,
+                                      .maxGeometryVaryingComponents = 64,
+                                      .maxTessControlInputComponents = 128,
+                                      .maxTessControlOutputComponents = 128,
+                                      .maxTessControlTextureImageUnits = 16,
+                                      .maxTessControlUniformComponents = 1024,
+                                      .maxTessControlTotalOutputComponents = 4096,
+                                      .maxTessEvaluationInputComponents = 128,
+                                      .maxTessEvaluationOutputComponents = 128,
+                                      .maxTessEvaluationTextureImageUnits = 16,
+                                      .maxTessEvaluationUniformComponents = 1024,
+                                      .maxTessPatchComponents = 120,
+                                      .maxPatchVertices = 32,
+                                      .maxTessGenLevel = 64,
+                                      .maxViewports = 16,
+                                      .maxVertexAtomicCounters = 0,
+                                      .maxTessControlAtomicCounters = 0,
+                                      .maxTessEvaluationAtomicCounters = 0,
+                                      .maxGeometryAtomicCounters = 0,
+                                      .maxFragmentAtomicCounters = 8,
+                                      .maxCombinedAtomicCounters = 8,
+                                      .maxAtomicCounterBindings = 1,
+                                      .maxVertexAtomicCounterBuffers = 0,
+                                      .maxTessControlAtomicCounterBuffers = 0,
+                                      .maxTessEvaluationAtomicCounterBuffers = 0,
+                                      .maxGeometryAtomicCounterBuffers = 0,
+                                      .maxFragmentAtomicCounterBuffers = 1,
+                                      .maxCombinedAtomicCounterBuffers = 1,
+                                      .maxAtomicCounterBufferSize = 16384,
+                                      .maxTransformFeedbackBuffers = 4,
+                                      .maxTransformFeedbackInterleavedComponents = 64,
+                                      .maxCullDistances = 8,
+                                      .maxCombinedClipAndCullDistances = 8,
+                                      .maxSamples = 4,
+                                      .maxMeshOutputVerticesNV = 256,
+                                      .maxMeshOutputPrimitivesNV = 512,
+                                      .maxMeshWorkGroupSizeX_NV = 32,
+                                      .maxMeshWorkGroupSizeY_NV = 1,
+                                      .maxMeshWorkGroupSizeZ_NV = 1,
+                                      .maxTaskWorkGroupSizeX_NV = 32,
+                                      .maxTaskWorkGroupSizeY_NV = 1,
+                                      .maxTaskWorkGroupSizeZ_NV = 1,
+                                      .maxMeshViewCountNV = 4,
+                                      .maxDualSourceDrawBuffersEXT = 1,
+                                      .limits = {
+                                          .nonInductiveForLoops = 1,
+                                          .whileLoops = 1,
+                                          .doWhileLoops = 1,
+                                          .generalUniformIndexing = 1,
+                                          .generalAttributeMatrixVectorIndexing = 1,
+                                          .generalVaryingIndexing = 1,
+                                          .generalSamplerIndexing = 1,
+                                          .generalVariableIndexing = 1,
+                                          .generalConstantMatrixVectorIndexing = 1,
+                                      }};
+    if (!shader.parse(&buildInResources, 100, false, messages)) {
+      throw std::runtime_error(std::string("!shader.parse(&buildInResources, 100, false, messages): getInfoLog:\n") +
+                               std::string(shader.getInfoLog()) + std::string("\ngetInfoDebugLog:\n") + std::string(shader.getInfoDebugLog()));
+    }
+    glslang::TProgram program;
+    program.addShader(&shader);
+    if (!program.link(messages)) {
+      throw std::runtime_error(std::string("!program.link(messages): getInfoLog:\n") + std::string(shader.getInfoLog()) +
+                               std::string("\ngetInfoDebugLog:\n") + std::string(shader.getInfoDebugLog()));
+    }
+    glslang::GlslangToSpv(*program.getIntermediate(stage), shaderSpirv);
+    return vk::raii::ShaderModule(*device, vk::ShaderModuleCreateInfo(vk::ShaderModuleCreateFlags(), shaderSpirv));
+  }
   Main() = delete;
   Main(const Main&) = delete;
   Main& operator=(const Main&) = delete;
+  /*
+   * Main
+   */
   Main(int argc, char** argv) {
     try {
+      std::filesystem::path sourceDirectory{"./"};
+      sourceDirectory = std::filesystem::absolute(sourceDirectory);
+      while (!std::filesystem::exists(sourceDirectory / "main.txt")) {
+        if (sourceDirectory.parent_path() == sourceDirectory)
+          throw std::runtime_error("!std::filesystem::exists(sourceDirectory / \"main.txt\")");
+        sourceDirectory = sourceDirectory.parent_path();
+      }
       CLI::App cliApp{applicationName};
       if (auto cliExit = [&]() -> std::optional<int> {
             CLI11_PARSE(cliApp, argc, argv);
@@ -185,6 +363,7 @@ struct Main {
       if (!glfwVulkanSupported()) {
         throw std::runtime_error("!glfwVulkanSupported()");
       }
+      glslang::InitializeProcess();
       vk::ApplicationInfo applicationInfo(applicationName.c_str(), 1, applicationName.c_str(), 1, VK_API_VERSION_1_2);
       std::vector<char const*> instanceLayers;
 #if !defined(NDEBUG)
@@ -218,33 +397,64 @@ struct Main {
             return (i.queueFlags & (vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer)) ==
                    (vk::QueueFlagBits::eCompute | vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eTransfer);
           });
-      queueFamilyIndices = {static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), queueFamilyPropertiesIterator))};
-      if (queueFamilyIndices[0] >= queueFamilyProperties.size()) {
-        throw std::runtime_error("queueFamilyIndices[0] >= queueFamilyProperties.size()");
+      queueFamilyIndex = static_cast<uint32_t>(std::distance(queueFamilyProperties.begin(), queueFamilyPropertiesIterator));
+      if (queueFamilyIndex >= queueFamilyProperties.size()) {
+        throw std::runtime_error("queueFamilyIndex >= queueFamilyProperties.size()");
       }
       auto queuePriority = 0.0f;
-      vk::DeviceQueueCreateInfo deviceQueueCreateInfo({}, queueFamilyIndices[0], 1, &queuePriority);
+      vk::DeviceQueueCreateInfo deviceQueueCreateInfo({}, queueFamilyIndex, 1, &queuePriority);
       vk::DeviceCreateInfo deviceCreateInfo({}, deviceQueueCreateInfo);
       device = std::make_unique<vk::raii::Device>(*physicalDevice, deviceCreateInfo);
-      queue = std::make_unique<vk::raii::Queue>(*device, queueFamilyIndices[0], 0);
-      vk::CommandPoolCreateInfo commandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices[0]);
+      queue = std::make_unique<vk::raii::Queue>(*device, queueFamilyIndex, 0);
+      vk::CommandPoolCreateInfo commandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndex);
       commandPool = std::make_unique<vk::raii::CommandPool>(*device, commandPoolCreateInfo);
+      std::vector<vk::DescriptorPoolSize> poolSizes{
+          vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
+          vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+      };
+      vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1u << 15u, poolSizes);
+      descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*device, descriptorPoolCreateInfo);
       {  // Allocator
         allocatorCreate();
         vk::BufferCreateInfo bufferCreateInfo({}, sizeof(uint32_t),
-                                              vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst,
-                                              vk::SharingMode::eExclusive, queueFamilyIndices);
+                                              vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst |
+                                                  vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eUniformBuffer,
+                                              vk::SharingMode::eExclusive, queueFamilyIndex);
         VmaAllocationCreateInfo allocationCreateInfo{
             .flags = {},
             .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
         };
         auto buffer = bufferCreate(bufferCreateInfo, allocationCreateInfo);
         bufferUse<uint32_t>(buffer, [&](auto data) { data[0] = 128; });
+        std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings{
+            vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute),
+            vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute),
+        };
+        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo({}, descriptorSetLayoutBindings);
+        vk::raii::DescriptorSetLayout descriptorSetLayout(*device, descriptorSetLayoutCreateInfo);
+        vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo(**descriptorPool, *descriptorSetLayout);
+        auto descriptorSet = std::move(vk::raii::DescriptorSets(*device, descriptorSetAllocateInfo).front());
+        vk::DescriptorBufferInfo descriptorBufferInfo(buffer.buffer, 0, buffer.descriptor.range);
+        std::vector<vk::WriteDescriptorSet> writeDescriptorSets{
+            vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[0].binding, 0, descriptorSetLayoutBindings[0].descriptorType, {},
+                                   descriptorBufferInfo),
+            vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[1].binding, 0, descriptorSetLayoutBindings[1].descriptorType, {},
+                                   descriptorBufferInfo)};
+        device->updateDescriptorSets(writeDescriptorSets, nullptr);
+        std::ifstream shaderModuleMainCompInput(sourceDirectory / "main.comp", std::ios::binary);
+        if (shaderModuleMainCompInput.fail()) {
+          throw std::runtime_error("shaderModuleMainCompInput.fail()");
+        }
+        std::stringstream shaderModuleMainCompStream;
+        shaderModuleMainCompStream << shaderModuleMainCompInput.rdbuf();
+        std::string shaderModuleMainCompSource = shaderModuleMainCompStream.str();
+        auto shaderModuleMainComp = shaderModuleCreateFromSource(vk::ShaderStageFlagBits::eCompute, shaderModuleMainCompSource);
         commandPoolSubmit([&](auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         bufferDestroy(buffer);
         allocatorDestroy();
       }
+      glslang::FinalizeProcess();
       std::cout << "cpp-2021-vulkan\n";  // main
     } catch (vk::SystemError& err) {
       std::cout << "vk::SystemError: " << err.what() << "\n";

@@ -9,6 +9,7 @@
     "entt",
     "glfw3",
     "glm",
+    "glslang",
     {
       "name": "imgui",
       "features": [

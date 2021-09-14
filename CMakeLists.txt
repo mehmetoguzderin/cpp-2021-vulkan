@@ -31,6 +31,9 @@ target_link_libraries(cpp-2021-vulkan PRIVATE glfw)
 find_package(glm CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE glm::glm)
 
+find_package(glslang CONFIG REQUIRED)
+target_link_libraries(cpp-2021-vulkan PRIVATE HLSL SPIRV glslang OGLCompiler)
+
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE imgui::imgui)
 
