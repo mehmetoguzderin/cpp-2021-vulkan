@@ -505,7 +505,7 @@ struct Main {
           throw std::runtime_error("!physicalDevice->getSurfaceSupportKHR(queueFamilyIndex, *surface)");
         uint32_t width, height;
         glfwGetFramebufferSize(window, reinterpret_cast<int*>(&width), reinterpret_cast<int*>(&height));
-        vk::SurfaceFormatKHR surfaceFormat = vk::SurfaceFormatKHR(vk::Format::eR16G16B16A16Sfloat, vk::ColorSpaceKHR::eSrgbNonlinear);
+        vk::SurfaceFormatKHR surfaceFormat = vk::SurfaceFormatKHR(vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear);
         vk::SurfaceCapabilitiesKHR surfaceCapabilities = physicalDevice->getSurfaceCapabilitiesKHR(*surface);
         VkExtent2D swapchainExtent;
         if (surfaceCapabilities.currentExtent.width == std::numeric_limits<uint32_t>::max()) {
