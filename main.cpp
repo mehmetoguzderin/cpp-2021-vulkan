@@ -368,10 +368,10 @@ struct Main {
         sourceDirectory = sourceDirectory.parent_path();
       }
       CLI::App cliApp{applicationName};
-      std::string mainCompGlsl = "main.comp";
-      cliApp.add_option("-g,--main-comp-glsl", mainCompGlsl, "GLSL")->envname("main-comp-glsl");
-      std::string mainCompSpv = "";
-      cliApp.add_option("-s,--main-comp-spirv", mainCompSpv, "SPIRV")->envname("main-comp-spirv");
+      std::string mainDoubleCompGlsl = "main.double.comp";
+      cliApp.add_option("-g,--main-comp-glsl", mainDoubleCompGlsl, "GLSL")->envname("main-comp-glsl");
+      std::string mainDoubleCompSpv = "";
+      cliApp.add_option("-s,--main-comp-spirv", mainDoubleCompSpv, "SPIRV")->envname("main-comp-spirv");
       if (auto cliExit = [&]() -> std::optional<int> {
             CLI11_PARSE(cliApp, argc, argv);
             return std::nullopt;
@@ -466,17 +466,19 @@ struct Main {
             vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[1].binding, 0, descriptorSetLayoutBindings[1].descriptorType, {},
                                    descriptorBufferInfo)};
         device->updateDescriptorSets(writeDescriptorSets, nullptr);
-        std::unique_ptr<vk::raii::ShaderModule> shaderModuleMainComp;
-        if (mainCompSpv.ends_with("spv")) {
-          shaderModuleMainComp = std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / mainCompSpv));
+        std::unique_ptr<vk::raii::ShaderModule> shaderModuleMainDoubleComp;
+        if (mainDoubleCompSpv.ends_with("spv")) {
+          shaderModuleMainDoubleComp =
+              std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / mainDoubleCompSpv));
         } else {
-          shaderModuleMainComp = std::make_unique<vk::raii::ShaderModule>(
-              shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits::eCompute, sourceDirectory / mainCompGlsl));
+          shaderModuleMainDoubleComp = std::make_unique<vk::raii::ShaderModule>(
+              shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits::eCompute, sourceDirectory / mainDoubleCompGlsl));
         }
         commandPoolSubmit([&](auto& commandBuffer) { commandBuffer.fillBuffer(buffer.buffer, 0, buffer.descriptor.range, 256); });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         vk::raii::PipelineLayout pipelineLayout(*device, {{}, *descriptorSetLayout});
-        vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, **shaderModuleMainComp, "main");
+        vk::PipelineShaderStageCreateInfo pipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, **shaderModuleMainDoubleComp,
+                                                                        "main");
         vk::ComputePipelineCreateInfo pipelineCreateInfo({}, pipelineShaderStageCreateInfo, *pipelineLayout);
         vk::raii::Pipeline pipeline(*device, nullptr, pipelineCreateInfo);
         commandPoolSubmit([&](auto& commandBuffer) {
