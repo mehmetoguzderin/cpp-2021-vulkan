@@ -20,7 +20,9 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "clang",
+        "CMAKE_C_STANDARD": "17",
         "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_STANDARD": "20",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
@@ -42,7 +44,9 @@
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
         "CMAKE_C_COMPILER": "clang",
+        "CMAKE_C_STANDARD": "17",
         "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_CXX_STANDARD": "20",
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "Z_VCPKG_ROOT_DIR": "$env{VCPKG_ROOT}"
       },
