@@ -158,7 +158,9 @@ struct Main {
     void* data;
     if (vmaMapMemory(allocator, buffer.allocation, &data) != VK_SUCCESS)
       throw std::runtime_error("vmaMapMemory(allocator, buffer.allocation, &data) != VK_SUCCESS");
+    vmaInvalidateAllocation(allocator, buffer.allocation, 0, buffer.descriptor.range);
     user(reinterpret_cast<T*>(data));
+    vmaFlushAllocation(allocator, buffer.allocation, 0, buffer.descriptor.range);
     vmaUnmapMemory(allocator, buffer.allocation);
   }
   void bufferDestroy(const Buffer buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
