@@ -151,8 +151,9 @@ Main::Main(int argc, char** argv) {
       }
       vk::SwapchainCreateInfoKHR swapchainCreateInfo(
           {}, *surface, surfaceCapabilities.minImageCount, surfaceFormat.format, surfaceFormat.colorSpace, swapchainExtent, 1,
-          vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst, vk::SharingMode::eExclusive, queueFamilyIndex,
-          vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::PresentModeKHR::eFifo, true, nullptr);
+          vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eStorage,
+          vk::SharingMode::eExclusive, queueFamilyIndex, vk::SurfaceTransformFlagBitsKHR::eIdentity, vk::CompositeAlphaFlagBitsKHR::eOpaque,
+          vk::PresentModeKHR::eFifo, true, nullptr);
       vk::raii::SwapchainKHR swapchain(*device, swapchainCreateInfo);
       std::vector<VkImage> swapchainImages = swapchain.getImages();
       std::vector<vk::raii::ImageView> swapchainImageViews;
@@ -212,35 +213,22 @@ Main::Main(int argc, char** argv) {
           throw std::runtime_error("imageIndex >= swapchainImages.size()");
         vk::PipelineStageFlags waitStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         vk::raii::Fence drawFence(*device, vk::FenceCreateInfo());
+        std::vector<vk::DescriptorImageInfo> imageDescriptorImageInfo{{{}, *swapchainImageViews[imageIndex], vk::ImageLayout::eGeneral}};
+        device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[0].binding, 0,
+                                       imageDescriptorSetLayoutBindings[0].descriptorType, imageDescriptorImageInfo}},
+                                     nullptr);
         for (auto x = 0; x < width; x += TILE_SIZE) {
           for (auto y = 0; y < height; y += TILE_SIZE) {
             commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
-              commandBuffer.pipelineBarrier(
-                  vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {},
-                  {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
-                    queueFamilyIndex, queueFamilyIndex, image.image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
+              commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {},
+                                            {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined,
+                                              vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
+                                              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *imagePipelineLayout, 0, *imageDescriptorSet, {});
               commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *imagePipeline);
               Constants constants{.offset = {x, y}, .wh = {static_cast<int>(width), static_cast<int>(height)}};
               commandBuffer.pushConstants<Constants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {constants});
               commandBuffer.dispatch(TILE_SIZE / LOCAL_SIZE + 1, TILE_SIZE / LOCAL_SIZE + 1, 1);
-            });
-            commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
-              commandBuffer.pipelineBarrier(
-                  vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
-                  {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
-                    vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image.image,
-                    vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
-                   {vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                    vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
-                    vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
-              commandBuffer.copyImage(
-                  image.image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex], vk::ImageLayout::eTransferDstOptimal,
-                  {{vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-                    {0, 0, 0},
-                    vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-                    vk::Offset3D(x, y, 0),
-                    vk::Extent3D(std::min(width, x + TILE_SIZE) - x, std::min(height, y + TILE_SIZE) - y, 1)}});
             });
           }
         }

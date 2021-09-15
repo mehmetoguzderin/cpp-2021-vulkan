@@ -21,8 +21,8 @@ layout(binding = 0, set = 0, rgba8) uniform image2D image;
 
 layout(local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE, local_size_z = 1) in;
 void main() {
-  if (gl_GlobalInvocationID.x >= TILE_SIZE || gl_GlobalInvocationID.y >= TILE_SIZE)
-    return;
   ivec2 xy = ivec2(constants.offset[0], constants.offset[1]) + ivec2(gl_GlobalInvocationID.xy);
-  imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])), 1));
+  if (xy.x >= constants.wh[0] || xy.y >= constants.wh[1])
+    return;
+  imageStore(image, xy, vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])), 1));
 }
