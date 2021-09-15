@@ -269,7 +269,7 @@ Main::Main(int argc, char** argv) {
             ImGui::Text("Average frame duration:");
             ImGui::Text("\t%f ms", frameDuration / static_cast<double>(frameCount));
           }
-          ImGui::ColorPicker4("Clear Color", constants.clearColor);
+          ImGui::ColorPicker4("Clear Color", &constants.clearColor[0]);
           ImGui::End();
         }
         ImGui::Render();
