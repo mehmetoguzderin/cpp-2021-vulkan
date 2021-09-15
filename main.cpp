@@ -167,8 +167,8 @@ Main::Main(int argc, char** argv) {
       auto image = imageCreate(
           {{},
            vk::ImageType::e2D,
-           surfaceFormat.format,
-           vk::Extent3D(TILE_SIZE, TILE_SIZE, 1),
+           vk::Format::eR32G32B32A32Sfloat,
+           vk::Extent3D(width, height, 1),
            1,
            1,
            vk::SampleCountFlagBits::e1,
@@ -180,18 +180,19 @@ Main::Main(int argc, char** argv) {
           {{},
            {},
            vk::ImageViewType::e2D,
-           surfaceFormat.format,
+           vk::Format::eR32G32B32A32Sfloat,
            vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
            vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
           {.flags = {}, .usage = VMA_MEMORY_USAGE_GPU_ONLY});
       std::vector<vk::DescriptorSetLayoutBinding> imageDescriptorSetLayoutBindings{
           {0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
+          {1, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
       };
       vk::raii::DescriptorSetLayout imageDescriptorSetLayout(*device, {{}, imageDescriptorSetLayoutBindings});
       auto imageDescriptorSet = std::move(vk::raii::DescriptorSets(*device, {**descriptorPool, *imageDescriptorSetLayout}).front());
       std::vector<vk::DescriptorImageInfo> imageDescriptorImageInfo{{{}, **image.view, vk::ImageLayout::eGeneral}};
-      device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[0].binding, 0,
-                                     imageDescriptorSetLayoutBindings[0].descriptorType, imageDescriptorImageInfo}},
+      device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[1].binding, 0,
+                                     imageDescriptorSetLayoutBindings[1].descriptorType, imageDescriptorImageInfo}},
                                    nullptr);
       auto shaderModuleMainShaderImageComp =
           std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / "main.shader.image.comp.spv"));
@@ -223,10 +224,14 @@ Main::Main(int argc, char** argv) {
               commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {},
                                             {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined,
                                               vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
-                                              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
+                                              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
+                                             {vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eShaderWrite,
+                                              vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex,
+                                              image.image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *imagePipelineLayout, 0, *imageDescriptorSet, {});
               commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *imagePipeline);
-              Constants constants{.offset = {x, y}, .wh = {static_cast<int>(width), static_cast<int>(height)}};
+              Constants constants{
+                  .offset = {x, y}, .wh = {static_cast<int>(width), static_cast<int>(height)}, .clearColor = {0.5, 0.5, 0.5, 1.0}};
               commandBuffer.pushConstants<Constants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {constants});
               commandBuffer.dispatch(TILE_SIZE / LOCAL_SIZE + 1, TILE_SIZE / LOCAL_SIZE + 1, 1);
             });
