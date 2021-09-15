@@ -28,7 +28,7 @@ void main() {
   if (xy.x >= constants.wh[0] || xy.y >= constants.wh[1])
     return;
   vec4 samplesValue = imageLoad(samples, xy);
-  samplesValue += vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])) * 0.0004f, 1);
+  samplesValue += vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])) * 0.0002f, 1);
   imageStore(samples, xy, samplesValue);
   imageStore(image, xy,
              samplesValue + vec4(constants.clearColor[0], constants.clearColor[1], constants.clearColor[2], constants.clearColor[3]));
