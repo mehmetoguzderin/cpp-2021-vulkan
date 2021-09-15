@@ -459,20 +459,15 @@ struct Main {
         bufferUse<uint32_t>(buffer, [&](auto data) { data[0] = 128; });
         bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
         std::vector<vk::DescriptorSetLayoutBinding> descriptorSetLayoutBindings{
-            vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute),
-            vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute),
+            {0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute},
+            {1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute},
         };
-        vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutCreateInfo({}, descriptorSetLayoutBindings);
-        vk::raii::DescriptorSetLayout descriptorSetLayout(*device, descriptorSetLayoutCreateInfo);
-        vk::DescriptorSetAllocateInfo descriptorSetAllocateInfo(**descriptorPool, *descriptorSetLayout);
-        auto descriptorSet = std::move(vk::raii::DescriptorSets(*device, descriptorSetAllocateInfo).front());
-        vk::DescriptorBufferInfo descriptorBufferInfo(buffer.buffer, 0, buffer.descriptor.range);
-        std::vector<vk::WriteDescriptorSet> writeDescriptorSets{
-            vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[0].binding, 0, descriptorSetLayoutBindings[0].descriptorType, {},
-                                   descriptorBufferInfo),
-            vk::WriteDescriptorSet(*descriptorSet, descriptorSetLayoutBindings[1].binding, 0, descriptorSetLayoutBindings[1].descriptorType, {},
-                                   descriptorBufferInfo)};
-        device->updateDescriptorSets(writeDescriptorSets, nullptr);
+        vk::raii::DescriptorSetLayout descriptorSetLayout(*device, {{}, descriptorSetLayoutBindings});
+        auto descriptorSet = std::move(vk::raii::DescriptorSets(*device, {**descriptorPool, *descriptorSetLayout}).front());
+        device->updateDescriptorSets(
+            {{*descriptorSet, descriptorSetLayoutBindings[0].binding, 0, descriptorSetLayoutBindings[0].descriptorType, {}, buffer.descriptor},
+             {*descriptorSet, descriptorSetLayoutBindings[1].binding, 0, descriptorSetLayoutBindings[1].descriptorType, {}, buffer.descriptor}},
+            nullptr);
         std::unique_ptr<vk::raii::ShaderModule> shaderModuleMainDoubleComp;
         if (mainDoubleCompSpv.ends_with("spv")) {
           shaderModuleMainDoubleComp =
@@ -567,37 +562,34 @@ struct Main {
           vk::raii::Fence drawFence(*device, vk::FenceCreateInfo());
           commandPoolSubmit(
               [&](const vk::raii::CommandBuffer& commandBuffer) {
-                vk::ImageMemoryBarrier clearMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite,
-                                                          vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex,
-                                                          queueFamilyIndex, image,
-                                                          vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
                 commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
-                                              clearMemoryBarrier);
+                                              {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
+                                                vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, image,
+                                                vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
                 vk::ClearColorValue clearColorValue{};
                 clearColorValue.setFloat32({0, 0, 1, 1});
                 commandBuffer.clearColorImage(image, vk::ImageLayout::eTransferDstOptimal, clearColorValue,
                                               vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-                std::vector<vk::ImageMemoryBarrier> copyMemoryBarriers{
-                    vk::ImageMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
-                                           vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image,
-                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)),
-                    vk::ImageMemoryBarrier(vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                                           vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex,
-                                           swapchainImages[imageIndex],
-                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1))};
-                commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
-                                              copyMemoryBarriers);
-                vk::ImageCopy imageCopy(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), {},
-                                        vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), vk::Offset3D(tile, tile, 0),
-                                        vk::Extent3D(tile, tile, 1));
+                commandBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
+                    {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
+                      vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image,
+                      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
+                     {vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
+                      vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
+                      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
                 commandBuffer.copyImage(image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex],
-                                        vk::ImageLayout::eTransferDstOptimal, imageCopy);
-                vk::ImageMemoryBarrier outputMemoryBarrier(vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentRead,
-                                                           vk::ImageLayout::eUndefined, vk::ImageLayout::ePresentSrcKHR, queueFamilyIndex,
-                                                           queueFamilyIndex, swapchainImages[imageIndex],
-                                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-                commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {},
-                                              {}, outputMemoryBarrier);
+                                        vk::ImageLayout::eTransferDstOptimal,
+                                        {{vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
+                                          {},
+                                          vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
+                                          vk::Offset3D(tile, tile, 0),
+                                          vk::Extent3D(tile, tile, 1)}});
+                commandBuffer.pipelineBarrier(
+                    vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
+                    {{vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentRead, vk::ImageLayout::eUndefined,
+                      vk::ImageLayout::ePresentSrcKHR, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
+                      vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               },
               *drawFence, waitStageMask, *imageAcquiredSemaphore);
           while (vk::Result::eTimeout == device->waitForFences(*drawFence, VK_TRUE, 100000000))
