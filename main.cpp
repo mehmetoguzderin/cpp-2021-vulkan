@@ -151,6 +151,7 @@ Main::Main(int argc, char** argv) {
       glfwGetFramebufferSize(window, reinterpret_cast<int*>(&width), reinterpret_cast<int*>(&height));
       vk::SurfaceFormatKHR surfaceFormat = vk::SurfaceFormatKHR(vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear);
       vk::SurfaceCapabilitiesKHR surfaceCapabilities = physicalDevice->getSurfaceCapabilitiesKHR(*surface);
+      surfaceCapabilities.minImageCount = std::max(surfaceCapabilities.minImageCount, 2u);
       VkExtent2D swapchainExtent;
       if (surfaceCapabilities.currentExtent.width == std::numeric_limits<uint32_t>::max()) {
         swapchainExtent.width = std::clamp(width, surfaceCapabilities.minImageExtent.width, surfaceCapabilities.maxImageExtent.width);
@@ -187,8 +188,8 @@ Main::Main(int argc, char** argv) {
       vk::RenderPassCreateInfo renderPassCreateInfo({}, attachmentDescription, subpass);
       vk::raii::RenderPass renderPass(*device, renderPassCreateInfo);
       std::vector<vk::raii::Framebuffer> framebuffers;
-      for (auto const& swapchainImageView : swapchainImageViews) {
-        std::vector<const vk::ImageView> swapchainImageViewsProxy{*swapchainImageView};
+      for (auto& swapchainImageView : swapchainImageViews) {
+        std::vector<vk::ImageView> swapchainImageViewsProxy{*swapchainImageView};
         vk::FramebufferCreateInfo framebufferCreateInfo({}, *renderPass, swapchainImageViewsProxy, width, height, 1);
         framebuffers.push_back(vk::raii::Framebuffer(*device, framebufferCreateInfo));
       }
