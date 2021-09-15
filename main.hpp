@@ -171,7 +171,37 @@ struct Main {
     vmaFlushAllocation(allocator, buffer.allocation, 0, buffer.descriptor.range);
     vmaUnmapMemory(allocator, buffer.allocation);
   }
-  void bufferDestroy(const Buffer buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
+  void bufferDestroy(Buffer& buffer) { vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation); }
+  struct Image {
+    vk::Image image;
+    std::unique_ptr<vk::raii::ImageView> view;
+    VmaAllocation allocation;
+    VmaAllocationInfo info;
+  };
+  Image imageCreate(const vk::ImageCreateInfo imageCreateInfo,
+                    vk::ImageViewCreateInfo viewCreateInfo,
+                    const VmaAllocationCreateInfo allocationCreateInfo) {
+    auto vkImageCreateInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
+    VkImage vkImage;
+    VmaAllocation allocation;
+    VmaAllocationInfo allocationInfo;
+    if (vmaCreateImage(allocator, &vkImageCreateInfo, &allocationCreateInfo, &vkImage, &allocation, &allocationInfo) != VK_SUCCESS)
+      throw std::runtime_error(
+          "vmaCreateImage(allocator, &vkImageCreateInfo, &allocationCreateInfo, &vkImage, &allocation, &allocationInfo) != "
+          "VK_SUCCESS");
+    vk::Image image(vkImage);
+    viewCreateInfo.image = image;
+    return Image{
+        .image = static_cast<vk::Image>(vkImage),
+        .view = std::make_unique<vk::raii::ImageView>(*device, viewCreateInfo),
+        .allocation = allocation,
+        .info = allocationInfo,
+    };
+  }
+  void imageDestroy(Image& image) {
+    image.view.reset();
+    vmaDestroyImage(allocator, image.image, image.allocation);
+  }
   vk::raii::ShaderModule shaderModuleCreateFromGlslFile(vk::ShaderStageFlagBits shaderStage, std::filesystem::path shaderGlsl) {
     std::ifstream shaderModuleMainCompInput(shaderGlsl, std::ios::binary);
     if (shaderModuleMainCompInput.fail()) {

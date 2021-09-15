@@ -163,30 +163,26 @@ Main::Main(int argc, char** argv) {
         swapchainImageViews.push_back({*device, swapchainImageViewCreateInfo});
       }
       uint32_t tile = 256;
-      vk::ImageCreateInfo imageCreateInfo({}, vk::ImageType::e2D, surfaceFormat.format, vk::Extent3D(tile, tile, 1), 1, 1,
-                                          vk::SampleCountFlagBits::e1, vk::ImageTiling::eOptimal,
-                                          vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage |
-                                              vk::ImageUsageFlagBits::eTransferSrc | vk::ImageUsageFlagBits::eTransferDst,
-                                          vk::SharingMode::eExclusive, queueFamilyIndex);
-      auto vkImageCreateInfo = static_cast<VkImageCreateInfo>(imageCreateInfo);
-      VmaAllocationCreateInfo imageAllocationCreateInfo{
-          .flags = {},
-          .usage = VMA_MEMORY_USAGE_GPU_ONLY,
-      };
-      VkImage vkImage;
-      VmaAllocation imageAllocation;
-      VmaAllocationInfo imageAllocationInfo;
-      if (vmaCreateImage(allocator, &vkImageCreateInfo, &imageAllocationCreateInfo, &vkImage, &imageAllocation, &imageAllocationInfo) !=
-          VK_SUCCESS)
-        throw std::runtime_error(
-            "vmaCreateImage(allocator, &vkImageCreateInfo, &imageAllocationCreateInfo, &vkImage, &imageAllocation, &imageAllocationInfo) != "
-            "VK_SUCCESS");
-      vk::Image image(vkImage);
-      vk::ImageViewCreateInfo imageViewCreateInfo(
-          {}, static_cast<vk::Image>(image), vk::ImageViewType::e2D, surfaceFormat.format,
-          vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
-          vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-      vk::raii::ImageView imageView(*device, imageViewCreateInfo);
+      auto image = imageCreate(
+          {{},
+           vk::ImageType::e2D,
+           surfaceFormat.format,
+           vk::Extent3D(tile, tile, 1),
+           1,
+           1,
+           vk::SampleCountFlagBits::e1,
+           vk::ImageTiling::eOptimal,
+           vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eTransferSrc |
+               vk::ImageUsageFlagBits::eTransferDst,
+           vk::SharingMode::eExclusive,
+           queueFamilyIndex},
+          {{},
+           {},
+           vk::ImageViewType::e2D,
+           surfaceFormat.format,
+           vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
+           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
+          {.flags = {}, .usage = VMA_MEMORY_USAGE_GPU_ONLY});
       while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         vk::raii::Semaphore imageAcquiredSemaphore(*device, vk::SemaphoreCreateInfo());
@@ -203,21 +199,21 @@ Main::Main(int argc, char** argv) {
             [&](const vk::raii::CommandBuffer& commandBuffer) {
               commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
                                             {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                                              vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, image,
+                                              vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, image.image,
                                               vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               vk::ClearColorValue clearColorValue{};
               clearColorValue.setFloat32({0, 0, 1, 1});
-              commandBuffer.clearColorImage(image, vk::ImageLayout::eTransferDstOptimal, clearColorValue,
+              commandBuffer.clearColorImage(image.image, vk::ImageLayout::eTransferDstOptimal, clearColorValue,
                                             vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
               commandBuffer.pipelineBarrier(
                   vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
                   {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
-                    vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image,
+                    vk::ImageLayout::eTransferSrcOptimal, queueFamilyIndex, queueFamilyIndex, image.image,
                     vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
                    {vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
                     vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                     vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
-              commandBuffer.copyImage(image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex],
+              commandBuffer.copyImage(image.image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex],
                                       vk::ImageLayout::eTransferDstOptimal,
                                       {{vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
                                         {},
@@ -236,8 +232,9 @@ Main::Main(int argc, char** argv) {
         vk::PresentInfoKHR presentInfoKHR(nullptr, *swapchain, imageIndex);
         result = queue->presentKHR(presentInfoKHR);
       }
+      device->waitIdle();
       glfwDestroyWindow(window);
-      vmaDestroyImage(allocator, static_cast<VkImage>(image), imageAllocation);
+      imageDestroy(image);
       bufferDestroy(buffer);
       allocatorDestroy();
     }
