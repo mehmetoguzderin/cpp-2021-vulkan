@@ -40,13 +40,13 @@ float maxComponent(vec3 v) {
 // mat3 box.rotation:     box-to-world rotation (orthonormal 3x3 matrix) transformation
 // bool rayCanStartInBox: if true, assume the origin is never in a box. GLSL optimizes this at compile time
 // bool oriented:         if false, ignore box.rotation
-bool ourIntersectBoxCommon(Box box,
-                           Ray ray,
-                           REFERENCE_VARIABLE(float, distance),
-                           REFERENCE_VARIABLE(vec3, normal),
-                           const bool rayCanStartInBox,
-                           REFERENCE_VARIABLE(bool, oriented),
-                           REFERENCE_VARIABLE(vec3, _invRayDirection)) {
+bool intersectBoxCommon(Box box,
+                        Ray ray,
+                        REFERENCE_VARIABLE(float, distance),
+                        REFERENCE_VARIABLE(vec3, normal),
+                        const bool rayCanStartInBox,
+                        REFERENCE_VARIABLE(bool, oriented),
+                        REFERENCE_VARIABLE(vec3, _invRayDirection)) {
   // Move to the box's reference frame. This is unavoidable and un-optimizable.
   ray.origin = box.rotation * (ray.origin - box.center);
   if (oriented) {
@@ -118,7 +118,7 @@ bool ourIntersectBoxCommon(Box box,
 
 // Just determines whether the ray hits the axis-aligned box.
 // invRayDirection is guaranteed to be finite for all elements.
-bool ourHitAABox(vec3 boxCenter, vec3 boxRadius, vec3 rayOrigin, vec3 rayDirection, vec3 invRayDirection) {
+bool hitAABox(vec3 boxCenter, vec3 boxRadius, vec3 rayOrigin, vec3 rayDirection, vec3 invRayDirection) {
   rayOrigin -= boxCenter;
   vec3 distanceToPlane = (-boxRadius * sign(rayDirection) - rayOrigin) * invRayDirection;
 
@@ -134,27 +134,27 @@ bool ourHitAABox(vec3 boxCenter, vec3 boxRadius, vec3 rayOrigin, vec3 rayDirecti
 
 // There isn't really much application for ray-AABB where we don't check if the ray is in the box, so we
 // just give a dummy implementation here to allow the test harness to compile.
-bool ourOutsideHitAABox(vec3 boxCenter, vec3 boxRadius, vec3 rayOrigin, vec3 rayDirection, vec3 invRayDirection) {
-  return ourHitAABox(boxCenter, boxRadius, rayOrigin, rayDirection, invRayDirection);
+bool outsideHitAABox(vec3 boxCenter, vec3 boxRadius, vec3 rayOrigin, vec3 rayDirection, vec3 invRayDirection) {
+  return hitAABox(boxCenter, boxRadius, rayOrigin, rayDirection, invRayDirection);
 }
 
 // Ray is always outside of the box
-bool ourOutsideIntersectBox(Box box,
-                            Ray ray,
-                            REFERENCE_VARIABLE(float, distance),
-                            REFERENCE_VARIABLE(vec3, normal),
-                            REFERENCE_VARIABLE(bool, oriented),
-                            REFERENCE_VARIABLE(vec3, _invRayDirection)) {
-  return ourIntersectBoxCommon(box, ray, distance, normal, false, oriented, _invRayDirection);
+bool outsideIntersectBox(Box box,
+                         Ray ray,
+                         REFERENCE_VARIABLE(float, distance),
+                         REFERENCE_VARIABLE(vec3, normal),
+                         REFERENCE_VARIABLE(bool, oriented),
+                         REFERENCE_VARIABLE(vec3, _invRayDirection)) {
+  return intersectBoxCommon(box, ray, distance, normal, false, oriented, _invRayDirection);
 }
 
-bool ourIntersectBox(Box box,
-                     Ray ray,
-                     REFERENCE_VARIABLE(float, distance),
-                     REFERENCE_VARIABLE(vec3, normal),
-                     REFERENCE_VARIABLE(bool, oriented),
-                     REFERENCE_VARIABLE(vec3, _invRayDirection)) {
-  return ourIntersectBoxCommon(box, ray, distance, normal, true, oriented, _invRayDirection);
+bool intersectBox(Box box,
+                  Ray ray,
+                  REFERENCE_VARIABLE(float, distance),
+                  REFERENCE_VARIABLE(vec3, normal),
+                  REFERENCE_VARIABLE(bool, oriented),
+                  REFERENCE_VARIABLE(vec3, _invRayDirection)) {
+  return intersectBoxCommon(box, ray, distance, normal, true, oriented, _invRayDirection);
 }
 
 // End http://jcgt.org/published/0007/03/04/
@@ -162,10 +162,10 @@ bool ourIntersectBox(Box box,
 #define LOCAL_SIZE 8u
 #define TILE_SIZE 384u
 
-#define CONSTANTS        \
-  Constants {            \
-    ivec2 offset;       \
-    ivec2 wh;           \
+#define CONSTANTS    \
+  Constants {        \
+    ivec2 offset;    \
+    ivec2 wh;        \
     vec4 clearColor; \
   }
 
