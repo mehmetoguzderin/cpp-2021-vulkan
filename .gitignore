@@ -139,6 +139,7 @@ $tf/
 .vs/
 .vscode/*
 !.vscode/c_cpp_properties.json
+!.vscode/settings.json
 /Makefile
 /build/
 /config.toml

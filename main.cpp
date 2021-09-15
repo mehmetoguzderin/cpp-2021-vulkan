@@ -79,8 +79,9 @@ Main::Main(int argc, char** argv) {
     vk::CommandPoolCreateInfo commandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndex);
     commandPool = std::make_unique<vk::raii::CommandPool>(*device, commandPoolCreateInfo);
     std::vector<vk::DescriptorPoolSize> poolSizes{
-        vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 4),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, 4),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 4),
     };
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1u << 15u, poolSizes);
     descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*device, descriptorPoolCreateInfo);
@@ -162,12 +163,11 @@ Main::Main(int argc, char** argv) {
             vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
         swapchainImageViews.push_back({*device, swapchainImageViewCreateInfo});
       }
-      uint32_t tile = 256;
       auto image = imageCreate(
           {{},
            vk::ImageType::e2D,
            surfaceFormat.format,
-           vk::Extent3D(tile, tile, 1),
+           vk::Extent3D(TILE_SIZE, TILE_SIZE, 1),
            1,
            1,
            vk::SampleCountFlagBits::e1,
@@ -183,6 +183,23 @@ Main::Main(int argc, char** argv) {
            vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
            vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
           {.flags = {}, .usage = VMA_MEMORY_USAGE_GPU_ONLY});
+      std::vector<vk::DescriptorSetLayoutBinding> imageDescriptorSetLayoutBindings{
+          {0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
+      };
+      vk::raii::DescriptorSetLayout imageDescriptorSetLayout(*device, {{}, imageDescriptorSetLayoutBindings});
+      auto imageDescriptorSet = std::move(vk::raii::DescriptorSets(*device, {**descriptorPool, *imageDescriptorSetLayout}).front());
+      std::vector<vk::DescriptorImageInfo> imageDescriptorImageInfo{{{}, **image.view, vk::ImageLayout::eGeneral}};
+      device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[0].binding, 0,
+                                     imageDescriptorSetLayoutBindings[0].descriptorType, imageDescriptorImageInfo}},
+                                   nullptr);
+      auto shaderModuleMainShaderImageComp =
+          std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / "main.shader.image.comp.spv"));
+      vk::PushConstantRange imagePushConstantRange{vk::ShaderStageFlagBits::eCompute, 0, sizeof(Constants)};
+      vk::raii::PipelineLayout imagePipelineLayout(*device, {{}, *imageDescriptorSetLayout, imagePushConstantRange});
+      vk::PipelineShaderStageCreateInfo imagePipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute,
+                                                                           **shaderModuleMainShaderImageComp, "main");
+      vk::ComputePipelineCreateInfo imagePipelineCreateInfo({}, imagePipelineShaderStageCreateInfo, *imagePipelineLayout);
+      vk::raii::Pipeline imagePipeline(*device, nullptr, imagePipelineCreateInfo);
       while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         vk::raii::Semaphore imageAcquiredSemaphore(*device, vk::SemaphoreCreateInfo());
@@ -195,16 +212,20 @@ Main::Main(int argc, char** argv) {
           throw std::runtime_error("imageIndex >= swapchainImages.size()");
         vk::PipelineStageFlags waitStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         vk::raii::Fence drawFence(*device, vk::FenceCreateInfo());
-        commandPoolSubmit(
-            [&](const vk::raii::CommandBuffer& commandBuffer) {
-              commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
-                                            {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
-                                              vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, image.image,
-                                              vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
-              vk::ClearColorValue clearColorValue{};
-              clearColorValue.setFloat32({0, 0, 1, 1});
-              commandBuffer.clearColorImage(image.image, vk::ImageLayout::eTransferDstOptimal, clearColorValue,
-                                            vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+        for (auto x = 0; x < width; x += TILE_SIZE) {
+          for (auto y = 0; y < height; y += TILE_SIZE) {
+            commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
+              commandBuffer.pipelineBarrier(
+                  vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader, {}, {}, {},
+                  {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
+                    queueFamilyIndex, queueFamilyIndex, image.image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
+              commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *imagePipelineLayout, 0, *imageDescriptorSet, {});
+              commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *imagePipeline);
+              Constants constants{.offset = {x, y}, .wh = {static_cast<int>(width), static_cast<int>(height)}};
+              commandBuffer.pushConstants<Constants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {constants});
+              commandBuffer.dispatch(TILE_SIZE / LOCAL_SIZE + 1, TILE_SIZE / LOCAL_SIZE + 1, 1);
+            });
+            commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
               commandBuffer.pipelineBarrier(
                   vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, {}, {}, {},
                   {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eUndefined,
@@ -213,16 +234,21 @@ Main::Main(int argc, char** argv) {
                    {vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined,
                     vk::ImageLayout::eTransferDstOptimal, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                     vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
-              commandBuffer.copyImage(image.image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex],
-                                      vk::ImageLayout::eTransferDstOptimal,
-                                      {{vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-                                        {},
-                                        vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
-                                        vk::Offset3D(tile, tile, 0),
-                                        vk::Extent3D(tile, tile, 1)}});
+              commandBuffer.copyImage(
+                  image.image, vk::ImageLayout::eTransferSrcOptimal, swapchainImages[imageIndex], vk::ImageLayout::eTransferDstOptimal,
+                  {{vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
+                    {0, 0, 0},
+                    vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
+                    vk::Offset3D(x, y, 0),
+                    vk::Extent3D(std::min(TILE_SIZE, (x + TILE_SIZE) % width), std::min(TILE_SIZE, (y + TILE_SIZE) % height), 1)}});
+            });
+          }
+        }
+        commandPoolSubmit(
+            [&](const vk::raii::CommandBuffer& commandBuffer) {
               commandBuffer.pipelineBarrier(
-                  vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
-                  {{vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eColorAttachmentRead, vk::ImageLayout::eUndefined,
+                  vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
+                  {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eColorAttachmentRead, vk::ImageLayout::eUndefined,
                     vk::ImageLayout::ePresentSrcKHR, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                     vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
             },

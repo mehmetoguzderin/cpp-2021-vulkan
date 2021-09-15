@@ -15,19 +15,14 @@
 #define SHADER_GLSL
 #include "main.h"
 
-layout(set = 0, binding = 0, scalar) buffer StorageBuffer {
-  uint32_t data[];
-}
-storageBuffer;
+layout(push_constant, scalar) uniform CONSTANTS constants;
 
-layout(set = 0, binding = 1, scalar) uniform UniformBuffer {
-  uint32_t data;
-}
-uniformBuffer;
+layout(binding = 0, set = 0, rgba8) uniform image2D image;
 
-layout(local_size_x = LOCAL_SIZE, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE, local_size_z = 1) in;
 void main() {
-  if (gl_GlobalInvocationID.x > 0)
+  if (gl_GlobalInvocationID.x >= TILE_SIZE || gl_GlobalInvocationID.y >= TILE_SIZE)
     return;
-  storageBuffer.data[0] = uniformBuffer.data << 1;
+  ivec2 xy = ivec2(constants.offset[0], constants.offset[1]) + ivec2(gl_GlobalInvocationID.xy);
+  imageStore(image, ivec2(gl_GlobalInvocationID.xy), vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])), 1));
 }

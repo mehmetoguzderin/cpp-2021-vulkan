@@ -27,5 +27,5 @@ cmake . --preset arm64-osx-dbg|arm64-osx-rel|x64-windows-dbg|x64-windows-rel
 === Building (CLI)
 
 ....
-clang-format -i main.comp ; glslangValidator --target-env vulkan1.2 -o main.comp.spv main.comp ; spirv-opt -O --strip-debug --skip-block-layout -o main.comp.spv main.comp.spv
+MAINSHADER=main.comp ; clang-format -i $MAINSHADER ; glslangValidator --target-env vulkan1.2 -o $MAINSHADER.spv $MAINSHADER ; spirv-opt -O --strip-debug --skip-block-layout -o $MAINSHADER.spv $MAINSHADER.spv
 ....
