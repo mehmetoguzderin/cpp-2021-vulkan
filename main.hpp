@@ -62,6 +62,8 @@ using namespace glm;
 #include "CLI/Config.hpp"
 #include "CLI/Formatter.hpp"
 
+#include "main.h"
+
 struct Main {
   std::string applicationName{"cpp-2021-vulkan"};
   std::unique_ptr<vk::raii::Context> context;

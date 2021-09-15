@@ -12,7 +12,7 @@ Main::Main(int argc, char** argv) {
     CLI::App cliApp{applicationName};
     std::string mainDoubleCompGlsl = "main.shader.double.comp";
     cliApp.add_option("-g,--main-comp-glsl", mainDoubleCompGlsl, "GLSL")->envname("main-comp-glsl");
-    std::string mainDoubleCompSpv = "";
+    std::string mainDoubleCompSpv = "main.shader.double.comp.spv";
     cliApp.add_option("-s,--main-comp-spirv", mainDoubleCompSpv, "SPIRV")->envname("main-comp-spirv");
     if (auto cliExit = [&]() -> std::optional<int> {
           CLI11_PARSE(cliApp, argc, argv);

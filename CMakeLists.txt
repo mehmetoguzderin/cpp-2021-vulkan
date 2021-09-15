@@ -13,6 +13,18 @@ enable_testing()
 
 add_executable(cpp-2021-vulkan main.cpp)
 
+file(GLOB comp_files "${CMAKE_CURRENT_SOURCE_DIR}/main.shader.*.comp")
+foreach(comp_file ${comp_files})
+  add_custom_command(
+    TARGET cpp-2021-vulkan PRE_BUILD
+    COMMAND clang-format
+    ARGS -i ${comp_file}
+    COMMAND glslangValidator
+    ARGS --target-env vulkan1.2 -o ${comp_file}.spv ${comp_file}
+    COMMAND spirv-opt
+    ARGS -O --strip-debug --skip-block-layout -o ${comp_file}.spv ${comp_file}.spv)
+endforeach()
+
 find_package(benchmark CONFIG REQUIRED)
 target_link_libraries(cpp-2021-vulkan PRIVATE benchmark::benchmark benchmark::benchmark_main)
 
