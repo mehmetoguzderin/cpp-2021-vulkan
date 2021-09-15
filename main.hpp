@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
 #include <cinttypes>
 #include <csignal>
 #include <cstdio>

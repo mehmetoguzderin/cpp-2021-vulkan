@@ -79,9 +79,17 @@ Main::Main(int argc, char** argv) {
     vk::CommandPoolCreateInfo commandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndex);
     commandPool = std::make_unique<vk::raii::CommandPool>(*device, commandPoolCreateInfo);
     std::vector<vk::DescriptorPoolSize> poolSizes{
-        vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 4),
-        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, 4),
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 4),
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eInputAttachment, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eSampledImage, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eSampler, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageBufferDynamic, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageImage, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eStorageTexelBuffer, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBufferDynamic, 1 << 7),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformTexelBuffer, 1 << 7),
     };
     vk::DescriptorPoolCreateInfo descriptorPoolCreateInfo(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet, 1u << 15u, poolSizes);
     descriptorPool = std::make_unique<vk::raii::DescriptorPool>(*device, descriptorPoolCreateInfo);
@@ -131,7 +139,8 @@ Main::Main(int argc, char** argv) {
       });
       bufferUse<uint32_t>(buffer, [&](auto data) { std::cout << data[0] << "\n"; });
       glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-      auto window = glfwCreateWindow(960, 540, "cpp-2021-vulkan", NULL, NULL);
+      glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+      auto window = glfwCreateWindow(1280, 720, "cpp-2021-vulkan", NULL, NULL);
       VkSurfaceKHR vkSurface;
       if (glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS)
         throw std::runtime_error("glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS");
@@ -164,6 +173,47 @@ Main::Main(int argc, char** argv) {
             vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
         swapchainImageViews.push_back({*device, swapchainImageViewCreateInfo});
       }
+      vk::AttachmentDescription attachmentDescription{{},
+                                                      surfaceFormat.format,
+                                                      vk::SampleCountFlagBits::e1,
+                                                      vk::AttachmentLoadOp::eLoad,
+                                                      vk::AttachmentStoreOp::eStore,
+                                                      vk::AttachmentLoadOp::eDontCare,
+                                                      vk::AttachmentStoreOp::eDontCare,
+                                                      vk::ImageLayout::eUndefined,
+                                                      vk::ImageLayout::ePresentSrcKHR};
+      vk::AttachmentReference colorReference(0, vk::ImageLayout::eColorAttachmentOptimal);
+      vk::SubpassDescription subpass({}, vk::PipelineBindPoint::eGraphics, {}, colorReference);
+      vk::RenderPassCreateInfo renderPassCreateInfo({}, attachmentDescription, subpass);
+      vk::raii::RenderPass renderPass(*device, renderPassCreateInfo);
+      std::vector<vk::raii::Framebuffer> framebuffers;
+      for (auto const& swapchainImageView : swapchainImageViews) {
+        std::vector<const vk::ImageView> swapchainImageViewsProxy{*swapchainImageView};
+        vk::FramebufferCreateInfo framebufferCreateInfo({}, *renderPass, swapchainImageViewsProxy, width, height, 1);
+        framebuffers.push_back(vk::raii::Framebuffer(*device, framebufferCreateInfo));
+      }
+      ImGui::CreateContext();
+      ImGuiIO& io = ImGui::GetIO();
+      io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+      io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+      ImGui::StyleColorsDark();
+      ImGui_ImplGlfw_InitForVulkan(window, false);
+      ImGui_ImplVulkan_LoadFunctions(
+          [](const char* function_name, void* instance) { return static_cast<vk::Instance*>(instance)->getProcAddr(function_name); },
+          const_cast<void*>(static_cast<const void*>(&**instance)));
+      ImGui_ImplVulkan_InitInfo imguiVulkanInfo = {};
+      imguiVulkanInfo.Instance = **instance;
+      imguiVulkanInfo.PhysicalDevice = **physicalDevice;
+      imguiVulkanInfo.Device = **device;
+      imguiVulkanInfo.QueueFamily = queueFamilyIndex;
+      imguiVulkanInfo.Queue = **queue;
+      imguiVulkanInfo.DescriptorPool = **descriptorPool;
+      imguiVulkanInfo.MinImageCount = surfaceCapabilities.minImageCount;
+      imguiVulkanInfo.ImageCount = surfaceCapabilities.minImageCount;
+      if (!ImGui_ImplVulkan_Init(&imguiVulkanInfo, *renderPass))
+        throw std::runtime_error("!ImGui_ImplVulkan_Init(&imguiVulkanInfo, *renderPass)");
+      commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) { ImGui_ImplVulkan_CreateFontsTexture(*commandBuffer); });
+      ImGui_ImplVulkan_DestroyFontUploadObjects();
       auto image = imageCreate(
           {{},
            vk::ImageType::e2D,
@@ -202,8 +252,27 @@ Main::Main(int argc, char** argv) {
                                                                            **shaderModuleMainShaderImageComp, "main");
       vk::ComputePipelineCreateInfo imagePipelineCreateInfo({}, imagePipelineShaderStageCreateInfo, *imagePipelineLayout);
       vk::raii::Pipeline imagePipeline(*device, nullptr, imagePipelineCreateInfo);
+      Constants constants{.offset = {0, 0}, .wh = {static_cast<int>(width), static_cast<int>(height)}, .clearColor = {0.5, 0.5, 0.5, 1.0}};
+      uint64_t frameCount = 0;
+      double frameDuration = 0.0;
       while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        {
+          ImGui::Begin("cpp-2021-vulkan", {}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+          ImGui::SetWindowPos(ImVec2(0, 0));
+          ImGui::SetWindowSize(ImVec2(256, height));
+          if (frameCount > 0) {
+            ImGui::Text("Average frame duration:");
+            ImGui::Text("\t%f ms", frameDuration / static_cast<double>(frameCount));
+          }
+          ImGui::ColorPicker4("Clear Color", constants.clearColor);
+          ImGui::End();
+        }
+        ImGui::Render();
+        ImDrawData* imguiDrawData = ImGui::GetDrawData();
         vk::raii::Semaphore imageAcquiredSemaphore(*device, vk::SemaphoreCreateInfo());
         vk::Result result;
         uint32_t imageIndex;
@@ -218,6 +287,13 @@ Main::Main(int argc, char** argv) {
         device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[0].binding, 0,
                                        imageDescriptorSetLayoutBindings[0].descriptorType, imageDescriptorImageInfo}},
                                      nullptr);
+        commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
+          commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, {}, {}, {},
+                                        {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined,
+                                          vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
+                                          vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
+        });
+        auto t0 = std::chrono::steady_clock::now();
         for (auto x = 0; x < width; x += TILE_SIZE) {
           for (auto y = 0; y < height; y += TILE_SIZE) {
             commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
@@ -230,17 +306,24 @@ Main::Main(int argc, char** argv) {
                                               image.image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *imagePipelineLayout, 0, *imageDescriptorSet, {});
               commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *imagePipeline);
-              Constants constants{
-                  .offset = {x, y}, .wh = {static_cast<int>(width), static_cast<int>(height)}, .clearColor = {0.5, 0.5, 0.5, 1.0}};
+              constants.offset[0] = x;
+              constants.offset[1] = y;
               commandBuffer.pushConstants<Constants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {constants});
               commandBuffer.dispatch(TILE_SIZE / LOCAL_SIZE + 1, TILE_SIZE / LOCAL_SIZE + 1, 1);
             });
           }
         }
+        auto t1 = std::chrono::steady_clock::now();
+        frameCount += 1;
+        frameDuration += std::chrono::duration<double, std::milli>(t1 - t0).count();
         commandPoolSubmit(
             [&](const vk::raii::CommandBuffer& commandBuffer) {
+              vk::RenderPassBeginInfo renderPassBeginInfo(*renderPass, *framebuffers[imageIndex], vk::Rect2D{{}, {width, height}});
+              commandBuffer.beginRenderPass(renderPassBeginInfo, vk::SubpassContents::eInline);
+              ImGui_ImplVulkan_RenderDrawData(imguiDrawData, *commandBuffer);
+              commandBuffer.endRenderPass();
               commandBuffer.pipelineBarrier(
-                  vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
+                  vk::PipelineStageFlagBits::eBottomOfPipe, vk::PipelineStageFlagBits::eColorAttachmentOutput, {}, {}, {},
                   {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eColorAttachmentRead, vk::ImageLayout::eUndefined,
                     vk::ImageLayout::ePresentSrcKHR, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                     vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
@@ -252,6 +335,9 @@ Main::Main(int argc, char** argv) {
         result = queue->presentKHR(presentInfoKHR);
       }
       device->waitIdle();
+      ImGui_ImplVulkan_Shutdown();
+      ImGui_ImplGlfw_Shutdown();
+      ImGui::DestroyContext();
       glfwDestroyWindow(window);
       imageDestroy(image);
       bufferDestroy(buffer);
