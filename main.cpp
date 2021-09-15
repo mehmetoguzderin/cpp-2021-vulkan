@@ -240,7 +240,7 @@ Main::Main(int argc, char** argv) {
                     {0, 0, 0},
                     vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1),
                     vk::Offset3D(x, y, 0),
-                    vk::Extent3D(std::min(TILE_SIZE, (x + TILE_SIZE) % width), std::min(TILE_SIZE, (y + TILE_SIZE) % height), 1)}});
+                    vk::Extent3D(std::min(width, x + TILE_SIZE) - x, std::min(height, y + TILE_SIZE) - y, 1)}});
             });
           }
         }
