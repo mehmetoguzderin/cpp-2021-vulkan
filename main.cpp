@@ -290,7 +290,7 @@ Main::Main(int argc, char** argv) {
                                      nullptr);
         commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
           commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, {}, {}, {},
-                                        {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eShaderWrite, vk::ImageLayout::eUndefined,
+                                        {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eNoneKHR, vk::ImageLayout::eUndefined,
                                           vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
         });

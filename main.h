@@ -1,5 +1,5 @@
 #define LOCAL_SIZE 8u
-#define TILE_SIZE 256u
+#define TILE_SIZE 384u
 
 #define CONSTANTS        \
   Constants {            \
