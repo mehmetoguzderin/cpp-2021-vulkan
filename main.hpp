@@ -54,6 +54,7 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
+#include "glm/ext.hpp"
 #include "glm/glm.hpp"
 using namespace glm;
 
@@ -67,6 +68,10 @@ using namespace glm;
 
 struct Main {
   std::string applicationName{"cpp-2021-vulkan"};
+  double applicationDuration = 0.0;
+  uint64_t frameCount = 0;
+  double frameDuration = 0.0;
+  UniformConstants uniformConstants{{0, 0, 0}};
   std::unique_ptr<vk::raii::Context> context;
   std::unique_ptr<vk::raii::Instance> instance;
   std::unique_ptr<vk::raii::PhysicalDevice> physicalDevice;

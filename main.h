@@ -162,14 +162,18 @@ bool intersectBox(Box box,
 #define LOCAL_SIZE 8u
 #define TILE_SIZE 384u
 
-#define CONSTANTS    \
-  Constants {        \
-    ivec2 offset;    \
-    ivec2 wh;        \
-    vec4 clearColor; \
+#define UNIFORM_CONSTANTS \
+  UniformConstants { vec3 origin; }
+
+#define PUSH_CONSTANTS \
+  PushConstants {      \
+    ivec2 offset;      \
+    ivec2 wh;          \
+    vec4 clearColor;   \
   }
 
 #ifdef SHADER_GLSL
 #else
-struct CONSTANTS;
+struct UNIFORM_CONSTANTS;
+struct PUSH_CONSTANTS;
 #endif

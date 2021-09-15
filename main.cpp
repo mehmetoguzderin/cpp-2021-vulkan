@@ -141,6 +141,7 @@ Main::Main(int argc, char** argv) {
       glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
       glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
       auto window = glfwCreateWindow(1280, 720, "cpp-2021-vulkan", NULL, NULL);
+      glfwSetWindowUserPointer(window, this);
       VkSurfaceKHR vkSurface;
       if (glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS)
         throw std::runtime_error("glfwCreateWindowSurface(**instance, window, nullptr, &vkSurface) != VK_SUCCESS");
@@ -235,29 +236,66 @@ Main::Main(int argc, char** argv) {
            vk::ComponentMapping(vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA),
            vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)},
           {.flags = {}, .usage = VMA_MEMORY_USAGE_GPU_ONLY});
+      vk::BufferCreateInfo uniformConstantsBufferCreateInfo({}, sizeof(UniformConstants),
+                                                            vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst |
+                                                                vk::BufferUsageFlagBits::eStorageBuffer |
+                                                                vk::BufferUsageFlagBits::eUniformBuffer,
+                                                            vk::SharingMode::eExclusive, queueFamilyIndex);
+      VmaAllocationCreateInfo uniformConstantsAllocationCreateInfo{
+          .flags = {},
+          .usage = VMA_MEMORY_USAGE_CPU_TO_GPU,
+      };
+      auto uniformConstantsBuffer = bufferCreate(uniformConstantsBufferCreateInfo, uniformConstantsAllocationCreateInfo);
+      bufferUse<UniformConstants>(uniformConstantsBuffer, [&](auto data) { data[0] = uniformConstants; });
       std::vector<vk::DescriptorSetLayoutBinding> imageDescriptorSetLayoutBindings{
           {0, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
           {1, vk::DescriptorType::eStorageImage, 1, vk::ShaderStageFlagBits::eCompute},
+          {2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute},
       };
       vk::raii::DescriptorSetLayout imageDescriptorSetLayout(*device, {{}, imageDescriptorSetLayoutBindings});
       auto imageDescriptorSet = std::move(vk::raii::DescriptorSets(*device, {**descriptorPool, *imageDescriptorSetLayout}).front());
       std::vector<vk::DescriptorImageInfo> imageDescriptorImageInfo{{{}, **image.view, vk::ImageLayout::eGeneral}};
       device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[1].binding, 0,
-                                     imageDescriptorSetLayoutBindings[1].descriptorType, imageDescriptorImageInfo}},
+                                     imageDescriptorSetLayoutBindings[1].descriptorType, imageDescriptorImageInfo},
+                                    {*imageDescriptorSet,
+                                     imageDescriptorSetLayoutBindings[2].binding,
+                                     0,
+                                     imageDescriptorSetLayoutBindings[2].descriptorType,
+                                     {},
+                                     uniformConstantsBuffer.descriptor}},
                                    nullptr);
       auto shaderModuleMainShaderImageComp =
           std::make_unique<vk::raii::ShaderModule>(shaderModuleCreateFromSpirvFile(sourceDirectory / "main.shader.image.comp.spv"));
-      vk::PushConstantRange imagePushConstantRange{vk::ShaderStageFlagBits::eCompute, 0, sizeof(Constants)};
+      vk::PushConstantRange imagePushConstantRange{vk::ShaderStageFlagBits::eCompute, 0, sizeof(PushConstants)};
       vk::raii::PipelineLayout imagePipelineLayout(*device, {{}, *imageDescriptorSetLayout, imagePushConstantRange});
       vk::PipelineShaderStageCreateInfo imagePipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute,
                                                                            **shaderModuleMainShaderImageComp, "main");
       vk::ComputePipelineCreateInfo imagePipelineCreateInfo({}, imagePipelineShaderStageCreateInfo, *imagePipelineLayout);
       vk::raii::Pipeline imagePipeline(*device, nullptr, imagePipelineCreateInfo);
-      Constants constants{.offset = {0, 0}, .wh = {static_cast<int>(width), static_cast<int>(height)}, .clearColor = {0.5, 0.5, 0.5, 1.0}};
-      uint64_t frameCount = 0;
-      double frameDuration = 0.0;
+      uniformConstants.origin.x = width / 2;
+      uniformConstants.origin.y = height / 2;
+      uniformConstants.origin.z = 1024;
+      PushConstants pushConstants{
+          .offset = {0, 0}, .wh = {static_cast<int>(width), static_cast<int>(height)}, .clearColor = {0.5, 0.5, 0.5, 1.0}};
+      auto t0 = std::chrono::steady_clock::now();
+      glfwSetKeyCallback(window, [](GLFWwindow* window, int key, int scancode, int action, int mods) {
+        auto& main = *static_cast<Main*>(glfwGetWindowUserPointer(window));
+        if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
+          main.uniformConstants.origin.y -= 128;
+      });
+      glfwSetMouseButtonCallback(window, [](GLFWwindow* window, int button, int action, int mods) {
+        auto& main = *static_cast<Main*>(glfwGetWindowUserPointer(window));
+      });
+      glfwSetScrollCallback(
+          window, [](GLFWwindow* window, double xpos, double ypos) { auto& main = *static_cast<Main*>(glfwGetWindowUserPointer(window)); });
+      glfwSetCursorPosCallback(
+          window, [](GLFWwindow* window, double xpos, double ypos) { auto& main = *static_cast<Main*>(glfwGetWindowUserPointer(window)); });
+      glfwSetDropCallback(window, [](GLFWwindow* window, int count, const char** paths) {
+        auto& main = *static_cast<Main*>(glfwGetWindowUserPointer(window));
+      });
       while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
+        applicationDuration = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -269,7 +307,7 @@ Main::Main(int argc, char** argv) {
             ImGui::Text("Average frame duration:");
             ImGui::Text("\t%f ms", frameDuration / static_cast<double>(frameCount));
           }
-          ImGui::ColorPicker4("Clear Color", &constants.clearColor[0]);
+          ImGui::ColorPicker4("Clear Color", &pushConstants.clearColor[0]);
           ImGui::End();
         }
         ImGui::Render();
@@ -288,13 +326,14 @@ Main::Main(int argc, char** argv) {
         device->updateDescriptorSets({{*imageDescriptorSet, imageDescriptorSetLayoutBindings[0].binding, 0,
                                        imageDescriptorSetLayoutBindings[0].descriptorType, imageDescriptorImageInfo}},
                                      nullptr);
+        bufferUse<UniformConstants>(uniformConstantsBuffer, [&](auto data) { data[0] = uniformConstants; });
         commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
           commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eBottomOfPipe, {}, {}, {},
                                         {{vk::AccessFlagBits::eNoneKHR, vk::AccessFlagBits::eNoneKHR, vk::ImageLayout::eUndefined,
                                           vk::ImageLayout::eGeneral, queueFamilyIndex, queueFamilyIndex, swapchainImages[imageIndex],
                                           vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
         });
-        auto t0 = std::chrono::steady_clock::now();
+        auto t1 = std::chrono::steady_clock::now();
         for (auto x = 0; x < width; x += TILE_SIZE) {
           for (auto y = 0; y < height; y += TILE_SIZE) {
             commandPoolSubmit([&](const vk::raii::CommandBuffer& commandBuffer) {
@@ -307,16 +346,15 @@ Main::Main(int argc, char** argv) {
                                               image.image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)}});
               commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, *imagePipelineLayout, 0, *imageDescriptorSet, {});
               commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, *imagePipeline);
-              constants.offset[0] = x;
-              constants.offset[1] = y;
-              commandBuffer.pushConstants<Constants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {constants});
+              pushConstants.offset[0] = x;
+              pushConstants.offset[1] = y;
+              commandBuffer.pushConstants<PushConstants>(*imagePipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, {pushConstants});
               commandBuffer.dispatch(TILE_SIZE / LOCAL_SIZE + 1, TILE_SIZE / LOCAL_SIZE + 1, 1);
             });
           }
         }
-        auto t1 = std::chrono::steady_clock::now();
         frameCount += 1;
-        frameDuration += std::chrono::duration<double, std::milli>(t1 - t0).count();
+        frameDuration += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t1).count();
         commandPoolSubmit(
             [&](const vk::raii::CommandBuffer& commandBuffer) {
               vk::RenderPassBeginInfo renderPassBeginInfo(*renderPass, *framebuffers[imageIndex], vk::Rect2D{{}, {width, height}});
@@ -340,6 +378,7 @@ Main::Main(int argc, char** argv) {
       ImGui_ImplGlfw_Shutdown();
       ImGui::DestroyContext();
       glfwDestroyWindow(window);
+      bufferDestroy(uniformConstantsBuffer);
       imageDestroy(image);
       bufferDestroy(buffer);
       allocatorDestroy();

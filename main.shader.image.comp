@@ -15,22 +15,23 @@
 #define SHADER_GLSL
 #include "main.h"
 
-layout(push_constant, scalar) uniform CONSTANTS constants;
-
 layout(set = 0, binding = 0, rgba8) uniform image2D image;
 layout(set = 0, binding = 1, rgba32f) uniform image2D samples;
+layout(set = 0, binding = 2, scalar) uniform UNIFORM_CONSTANTS uniformConstants;
+
+layout(push_constant, scalar) uniform PUSH_CONSTANTS pushConstants;
 
 layout(local_size_x = LOCAL_SIZE, local_size_y = LOCAL_SIZE, local_size_z = 1) in;
 void main() {
   if (gl_GlobalInvocationID.x >= TILE_SIZE || gl_GlobalInvocationID.y >= TILE_SIZE)
     return;
-  ivec2 xy = ivec2(constants.offset[0], constants.offset[1]) + ivec2(gl_GlobalInvocationID.xy);
-  if (xy.x >= constants.wh[0] || xy.y >= constants.wh[1])
+  ivec2 xy = ivec2(pushConstants.offset[0], pushConstants.offset[1]) + ivec2(gl_GlobalInvocationID.xy);
+  if (xy.x >= pushConstants.wh[0] || xy.y >= pushConstants.wh[1])
     return;
   vec4 samplesValue = imageLoad(samples, xy);
-  samplesValue += vec4(0, vec2(vec2(xy) / vec2(constants.wh[0], constants.wh[1])) * 0.0002f, 1);
+  samplesValue += vec4(0, vec2(vec2(xy) / vec2(pushConstants.wh[0], pushConstants.wh[1])) * 0.0002f, 1);
   Ray ray;
-  ray.origin = vec3(xy, 0) - vec3(constants.wh[0] / 2, constants.wh[1] / 2, 1024);
+  ray.origin = vec3(xy, 0) - uniformConstants.origin;
   ray.direction = vec3(0, 0, 1);
   vec3 invDirection = safeInverse(ray.direction);
   Box box;
@@ -45,6 +46,7 @@ void main() {
   if (intersects)
     samplesValue = vec4(0);
   imageStore(samples, xy, samplesValue);
-  imageStore(image, xy,
-             samplesValue + vec4(constants.clearColor[0], constants.clearColor[1], constants.clearColor[2], constants.clearColor[3]));
+  imageStore(
+      image, xy,
+      samplesValue + vec4(pushConstants.clearColor[0], pushConstants.clearColor[1], pushConstants.clearColor[2], pushConstants.clearColor[3]));
 }
