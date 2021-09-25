@@ -18,6 +18,7 @@
       ]
     },
     "nlohmann-json",
+    "parallelstl",
     "pugixml",
     {
       "name": "sdl2-image",
